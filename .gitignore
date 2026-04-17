@@ -1,0 +1,27 @@
+# Rust build artifacts
+target/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs
+*.log
+worker_out.txt
+worker_err.txt
+worker_err.log
+
+# Data (too large for repo)
+data/
+
+# Model weights (too large)
+*.pth
+*.safetensors
+*.gguf
+
+# Databases
+*.db
+
+# Environment
+.env
