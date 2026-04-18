@@ -23,6 +23,7 @@
 //!   head.weight:                [50277, 768]
 
 use ndarray::{Array1, Array2, Array3};
+#[allow(unused_imports)]
 use std::collections::HashMap;
 
 // ===================== Weight Loading =====================
@@ -77,7 +78,7 @@ pub struct RwkvModelWeights {
 
 /// Load weights from safetensors file, convert PyTorch format to ndarray.
 /// PyTorch [M, N] → ndarray [N, M] (row-major: out_dim × in_dim)
-pub fn load_from_safetensors(path: &str) -> std::io::Result<RwkvModelWeights> {
+pub fn load_from_safetensors(_path: &str) -> std::io::Result<RwkvModelWeights> {
     // Use Python to load safetensors, then we process in Rust
     // (No Python available in Rust, so we do this via subprocess)
     // Actually, we do it inline using the safetensors_rs crate.
@@ -92,7 +93,7 @@ pub fn load_from_safetensors(path: &str) -> std::io::Result<RwkvModelWeights> {
 /// Simple binary format: each tensor is [u32 dims, u32*shape, f32*data] little-endian
 pub fn load_from_bincode(path: &str) -> std::io::Result<RwkvModelWeights> {
     use std::fs::File;
-    use std::io::{BufReader, Read};
+    use std::io::BufReader;
     use byteorder::{LittleEndian, ReadBytesExt};
 
     let file = File::open(path)?;

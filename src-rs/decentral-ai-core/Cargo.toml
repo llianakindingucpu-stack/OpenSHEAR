@@ -30,3 +30,11 @@ path = "src/router_main.rs"
 [[bin]]
 name = "shear"
 path = "src/shear_main.rs"
+
+[[bin]]
+name = "humaneval"
+path = "src/humaneval_main.rs"
+
+[[bin]]
+name = "gen_test"
+path = "src/gen_test_main.rs"

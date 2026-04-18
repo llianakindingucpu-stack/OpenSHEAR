@@ -120,6 +120,7 @@ pub type SharedState = Arc<P2PState>;
 pub struct P2PState {
     pub local_node: NetworkNode,
     peers: RwLock<HashMap<String, NetworkNode>>,
+    #[allow(dead_code)]
     pending_requests: RwLock<HashMap<String, mpsc::Sender<WireMessage>>>,
     gossip_tx: broadcast::Sender<WireMessage>,
 }

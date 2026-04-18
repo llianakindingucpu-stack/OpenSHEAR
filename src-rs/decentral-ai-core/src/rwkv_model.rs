@@ -8,7 +8,7 @@
 //!     ffn_k/v/r [FFN*H or H*FFN], mix_k/r [H]
 //!   Final: ln_out_w/b [H], head [V*H]
 
-use ndarray::{Array1, Array2, Array3};
+use ndarray::Array2;
 use rand::Rng;
 use std::io::Read;
 
@@ -37,15 +37,18 @@ fn read_u32(r: &mut std::io::BufReader<std::fs::File>) -> std::io::Result<u32> {
 }
 
 // Convert ndarray row to Vec<f32>
+#[allow(dead_code)]
 fn row_to_vec(arr: &Array2<f32>, row: usize) -> Vec<f32> {
     arr.row(row).to_vec()
 }
 
+#[allow(dead_code)]
 fn col_to_vec(arr: &Array2<f32>, col: usize) -> Vec<f32> {
     arr.column(col).to_vec()
 }
 
 // Gemv: [out_dim] = [out_dim, in_dim] @ [in_dim]
+#[allow(dead_code)]
 fn gemv(out: &mut [f32], w: &Array2<f32>, x: &[f32]) {
     for (oi, row) in w.rows().into_iter().enumerate() {
         out[oi] = row.iter().zip(x.iter()).map(|(wi, xi)| wi * xi).sum();
@@ -53,6 +56,7 @@ fn gemv(out: &mut [f32], w: &Array2<f32>, x: &[f32]) {
 }
 
 // Gemv that returns owned Vec<f32>
+#[allow(dead_code)]
 fn gemv_owned(w: &Array2<f32>, x: &[f32]) -> Vec<f32> {
     let mut out = vec![0.0f32; w.nrows()];
     gemv(&mut out, w, x);
@@ -116,7 +120,7 @@ impl RwkvModel {
         let vocab = read_u32(&mut r)? as usize;
         let n_layers = read_u32(&mut r)? as usize;
         let hidden = read_u32(&mut r)? as usize;
-        let ffn_size = read_u32(&mut r)? as usize;
+        let _ffn_size = read_u32(&mut r)? as usize;
         let mut magic = [0u8; 4];
         r.read_exact(&mut magic)?;
         assert_eq!(&magic, b"RWKV", "Bad magic number");
@@ -219,7 +223,13 @@ fn layer_norm(x: &[f32], w: &[f32], b: f32, eps: f32) -> Vec<f32> {
 fn weighted_sum(w: &Array2<f32>, x: &[f32]) -> Vec<f32> {
     let mut out = vec![0.0f32; w.nrows()];
     for (oi, row) in w.rows().into_iter().enumerate() {
-        out[oi] = row.iter().zip(x.iter()).map(|(wi, xi)| wi * xi).sum();
+        // Clamp intermediate sum to prevent f32 overflow
+        let mut s = 0.0f32;
+        for (wi, xi) in row.iter().zip(x.iter()) {
+            let prod = wi * xi;
+            s += if prod.is_nan() { 0.0 } else { prod.clamp(-1e20, 1e20) };
+        }
+        out[oi] = s;
     }
     out
 }
@@ -275,8 +285,8 @@ impl RwkvModelState {
 impl RwkvModel {
     /// Forward one token ID → logits over vocab
     pub fn forward_token(&self, token_id: usize, state: &mut RwkvModelState) -> Vec<f32> {
-        // 1. Embedding
-        let mut x: Vec<f32> = self.emb.row(token_id).to_vec();
+        let safe_id = if token_id >= VOCAB { 0 } else { token_id };
+        let mut x: Vec<f32> = self.emb.row(safe_id).to_vec();
 
         // 2. Blocks
         for (i, layer) in self.layers.iter().enumerate() {
@@ -300,7 +310,8 @@ impl RwkvModel {
             let mut new_aa = vec![0.0f32; HIDDEN];
             let mut new_bb = vec![0.0f32; HIDDEN];
             for j in 0..HIDDEN {
-                let dec = layer.att.decay[j].exp();
+                // Clamp exp(decay) to prevent overflow → inf → NaN
+                let dec = layer.att.decay[j].exp().clamp(1e-30, 1e10);
                 new_aa[j] = dec * s.att.aa[j] + v_in[j] * k[j];
                 new_bb[j] = dec * s.att.bb[j] + k[j];
                 wkv[j] = if new_bb[j].abs() > 1e-7 { new_aa[j] / new_bb[j] } else { layer.att.first[j] };
@@ -310,7 +321,7 @@ impl RwkvModel {
             for j in 0..HIDDEN {
                 s.att.aa[j] = new_aa[j];
                 s.att.bb[j] = new_bb[j];
-                let dec = layer.att.decay[j].exp();
+                let dec = layer.att.decay[j].exp().clamp(1e-30, 1e10);
                 s.att.k_prev[j] = dec * s.att.k_prev[j] + k_mix[j];
                 s.att.r_prev[j] = dec * s.att.r_prev[j] + r_mix[j];
                 s.att.v_prev[j] = dec * s.att.v_prev[j] + v_mix[j];
@@ -361,8 +372,7 @@ impl RwkvModel {
         x = layer_norm(&x, &self.ln_out_w, self.ln_out_b[0], 1e-5);
 
         // 4. Output projection
-        let logits = weighted_sum(&self.head, &x);
-        logits
+        weighted_sum(&self.head, &x)
     }
 
     /// Generate tokens autoregressively
@@ -387,6 +397,15 @@ impl RwkvModel {
         }
 
         (all_ids, start.elapsed())
+    }
+
+    /// Forward pass and return raw logits (no generation). For debugging.
+    pub fn debug_logits(&self, input_ids: &[usize]) -> Vec<f32> {
+        let mut state = RwkvModelState::new();
+        for &id in input_ids {
+            self.forward_token(id, &mut state);
+        }
+        self.forward_token(*input_ids.last().unwrap(), &mut state)
     }
 }
 

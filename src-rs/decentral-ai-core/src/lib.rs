@@ -2,6 +2,7 @@
 
 pub mod aggregator;
 pub mod cell;
+pub mod humaneval;
 pub mod network;
 pub mod router;
 pub mod rwkv_model;
