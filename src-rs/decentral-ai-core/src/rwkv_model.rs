@@ -393,7 +393,7 @@ impl RwkvModel {
 /// Sample next token from logits
 fn sample_token(logits: &[f32], temperature: f32) -> usize {
     if temperature < 1e-6 {
-        return logits.iter().enumerate().max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+        return logits.iter().enumerate().max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .map(|(i, _)| i).unwrap_or(0);
     }
 
@@ -408,7 +408,7 @@ fn sample_token(logits: &[f32], temperature: f32) -> usize {
 
     // Top-p sampling
     let mut pairs: Vec<(usize, f32)> = probs.iter().enumerate().map(|(i, p)| (i, *p)).collect();
-    pairs.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+    pairs.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
     let threshold = 0.9_f32;
     let mut cumsum = 0.0_f32;
