@@ -1,5 +1,7 @@
-// DecentralAI Core — Library root
+// SHEAR Core — Library root
 
+pub mod aggregator;
+pub mod cell;
 pub mod network;
 pub mod router;
 

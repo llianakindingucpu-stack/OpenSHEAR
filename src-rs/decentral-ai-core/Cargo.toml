@@ -16,6 +16,7 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 safetensors = "0.7"
 anyhow = "1"
 ndarray = { version = "0.16", default-features = false, features = ["std"] }
+rand = "0.8"
 
 [[bin]]
 name = "router"
