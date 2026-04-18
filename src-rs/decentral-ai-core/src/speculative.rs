@@ -146,6 +146,11 @@ impl SpeculativeEngine {
         }
     }
 
+    /// Get vocab size from the underlying model
+    pub fn vocab_size(&self) -> usize {
+        self.model.emb.nrows()
+    }
+
     /// Process prompt tokens through all cells (synchronize states) - PARALLEL
     pub fn process_prompt(&mut self, tokens: &[usize]) {
         let states = std::mem::take(&mut self.states);

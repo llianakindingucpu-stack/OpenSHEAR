@@ -39,3 +39,7 @@ path = "src/humaneval_main.rs"
 [[bin]]
 name = "gen_test"
 path = "src/gen_test_main.rs"
+
+[[bin]]
+name = "humaneval_ensemble"
+path = "src/humaneval_ensemble_main.rs"
