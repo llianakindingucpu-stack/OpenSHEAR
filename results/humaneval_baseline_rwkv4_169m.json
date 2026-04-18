@@ -1,0 +1,191 @@
+{
+  "model": "RWKV-4-169M",
+  "strategy": "cpu fp32",
+  "hardware": "Pentium G4560, 8GB RAM, No GPU",
+  "num_problems": 20,
+  "syntax_pass_rate": 0.0,
+  "avg_tok_per_sec": 6.38,
+  "total_time": 107.12815308570862,
+  "results": [
+    {
+      "task_id": "HumanEval/0",
+      "completion": "    if has_close_elements(numbers, threshold) and has_close_elements(numbers, threshold):\n        return True\n    return False\n\ndef has",
+      "syntax_ok": false,
+      "gen_time": 43.73,
+      "gen_tokens": 35,
+      "tok_per_sec": 0.8,
+      "error": null
+    },
+    {
+      "task_id": "HumanEval/1",
+      "completion": "    return [paren_string.split(paren_string) for paren_string in paren_string]\n\ndef separate",
+      "syntax_ok": false,
+      "gen_time": 3.56,
+      "gen_tokens": 30,
+      "tok_per_sec": 8.4,
+      "error": null
+    },
+    {
+      "task_id": "HumanEval/2",
+      "completion": "    return number.floor(number)\n\n\nclass Dec",
+      "syntax_ok": false,
+      "gen_time": 2.41,
+      "gen_tokens": 12,
+      "tok_per_sec": 5.0,
+      "error": null
+    },
+    {
+      "task_id": "HumanEval/3",
+      "completion": "    return operations.any(lambda x: x < 0)\n\ndef below",
+      "syntax_ok": false,
+      "gen_time": 3.07,
+      "gen_tokens": 17,
+      "tok_per_sec": 5.5,
+      "error": null
+    },
+    {
+      "task_id": "HumanEval/4",
+      "completion": "    return numbers.mean(numbers)\n\ndef mean",
+      "syntax_ok": false,
+      "gen_time": 2.15,
+      "gen_tokens": 12,
+      "tok_per_sec": 5.6,
+      "error": null
+    },
+    {
+      "task_id": "HumanEval/5",
+      "completion": "    return numbers.intersperse(delimeter)\n\ndef inter",
+      "syntax_ok": false,
+      "gen_time": 4.1,
+      "gen_tokens": 14,
+      "tok_per_sec": 3.4,
+      "error": null
+    },
+    {
+      "task_id": "HumanEval/6",
+      "completion": "    return paren_string.split(paren_string)\n\ndef parse",
+      "syntax_ok": false,
+      "gen_time": 6.4,
+      "gen_tokens": 18,
+      "tok_per_sec": 2.8,
+      "error": null
+    },
+    {
+      "task_id": "HumanEval/7",
+      "completion": "    return filter_by_substring(strings, substring)\n\n\nclass Filter",
+      "syntax_ok": false,
+      "gen_time": 5.05,
+      "gen_tokens": 17,
+      "tok_per_sec": 3.4,
+      "error": null
+    },
+    {
+      "task_id": "HumanEval/8",
+      "completion": "    return sum(numbers)\n\ndef sum",
+      "syntax_ok": false,
+      "gen_time": 1.42,
+      "gen_tokens": 10,
+      "tok_per_sec": 7.0,
+      "error": null
+    },
+    {
+      "task_id": "HumanEval/9",
+      "completion": "    return [rolling_max(numbers) for _ in range(len(numbers))]\n\ndef rolling",
+      "syntax_ok": false,
+      "gen_time": 11.39,
+      "gen_tokens": 23,
+      "tok_per_sec": 2.0,
+      "error": null
+    },
+    {
+      "task_id": "HumanEval/10",
+      "completion": "    return is_palindrome(string)\n\n\nclass Test",
+      "syntax_ok": false,
+      "gen_time": 1.42,
+      "gen_tokens": 14,
+      "tok_per_sec": 9.9,
+      "error": null
+    },
+    {
+      "task_id": "HumanEval/11",
+      "completion": "    return a.to_binary(b)\n\ndef string",
+      "syntax_ok": false,
+      "gen_time": 4.28,
+      "gen_tokens": 14,
+      "tok_per_sec": 3.3,
+      "error": null
+    },
+    {
+      "task_id": "HumanEval/12",
+      "completion": "    return [strings[i] for i in range(len(strings))]\n\ndef longest",
+      "syntax_ok": false,
+      "gen_time": 4.44,
+      "gen_tokens": 21,
+      "tok_per_sec": 4.7,
+      "error": null
+    },
+    {
+      "task_id": "HumanEval/13",
+      "completion": "    return a * b\n\ndef greatest",
+      "syntax_ok": false,
+      "gen_time": 1.34,
+      "gen_tokens": 9,
+      "tok_per_sec": 6.7,
+      "error": null
+    },
+    {
+      "task_id": "HumanEval/14",
+      "completion": "    return [l for l in l if l not in all_ints_exclusive]\n\ndef all",
+      "syntax_ok": false,
+      "gen_time": 2.08,
+      "gen_tokens": 23,
+      "tok_per_sec": 11.0,
+      "error": null
+    },
+    {
+      "task_id": "HumanEval/15",
+      "completion": "    return str(n) + str(n)\n\ndef string",
+      "syntax_ok": false,
+      "gen_time": 1.65,
+      "gen_tokens": 15,
+      "tok_per_sec": 9.1,
+      "error": null
+    },
+    {
+      "task_id": "HumanEval/16",
+      "completion": "    return count_distinct_characters(string)\n\ndef count",
+      "syntax_ok": false,
+      "gen_time": 1.6,
+      "gen_tokens": 16,
+      "tok_per_sec": 10.0,
+      "error": null
+    },
+    {
+      "task_id": "HumanEval/17",
+      "completion": "    return [\n        parse_music(music_string)\n    ]\n\ndef parse",
+      "syntax_ok": false,
+      "gen_time": 2.05,
+      "gen_tokens": 20,
+      "tok_per_sec": 9.8,
+      "error": null
+    },
+    {
+      "task_id": "HumanEval/18",
+      "completion": "    if substring in string:\n        return substring[0]\n    else:\n        return substring[1]\n\ndef find",
+      "syntax_ok": false,
+      "gen_time": 2.81,
+      "gen_tokens": 31,
+      "tok_per_sec": 11.0,
+      "error": null
+    },
+    {
+      "task_id": "HumanEval/19",
+      "completion": "    return numbers.sort_numbers(numbers)\n\ndef sort",
+      "syntax_ok": false,
+      "gen_time": 1.71,
+      "gen_tokens": 14,
+      "tok_per_sec": 8.2,
+      "error": null
+    }
+  ]
+}

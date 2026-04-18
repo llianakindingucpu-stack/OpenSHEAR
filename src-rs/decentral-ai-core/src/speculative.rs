@@ -16,6 +16,7 @@
 use crate::rwkv_model::{RwkvModel, RwkvModelState};
 use std::collections::HashMap;
 use std::time::Instant;
+use rayon::prelude::*;
 
 // ===================== Config =====================
 
@@ -145,16 +146,25 @@ impl SpeculativeEngine {
         }
     }
 
-    /// Process prompt tokens through all cells (synchronize states)
+    /// Process prompt tokens through all cells (synchronize states) - PARALLEL
     pub fn process_prompt(&mut self, tokens: &[usize]) {
-        for (i, state) in self.states.iter_mut().enumerate() {
-            state.reset();
-            let mut last_logits = Vec::new();
-            for &id in tokens {
-                last_logits = self.model.forward_token(id, state);
-            }
-            self.pending_logits[i] = last_logits;
-        }
+        let states = std::mem::take(&mut self.states);
+        let model = &self.model;
+
+        let (new_states, new_logits): (Vec<_>, Vec<_>) = states
+            .into_par_iter()
+            .map(|mut state| {
+                state.reset();
+                let mut last_logits = Vec::new();
+                for &id in tokens {
+                    last_logits = model.forward_token(id, &mut state);
+                }
+                (state, last_logits)
+            })
+            .unzip();
+
+        self.states = new_states;
+        self.pending_logits = new_logits;
     }
 
     /// Sample a token from logits with temperature and top-p
@@ -176,10 +186,21 @@ impl SpeculativeEngine {
         // 2. Vote on the token
         let (voted, consensus) = self.vote(&cell_tokens);
 
-        // 3. Feed the voted token to ALL cells (synchronize)
-        for (i, state) in self.states.iter_mut().enumerate() {
-            self.pending_logits[i] = self.model.forward_token(voted, state);
-        }
+        // 3. Feed the voted token to ALL cells (synchronize) - PARALLEL
+        let states = std::mem::take(&mut self.states);
+        let model = &self.model;
+        let voted_token = voted;
+
+        let (new_states, new_logits): (Vec<_>, Vec<_>) = states
+            .into_par_iter()
+            .map(|mut state| {
+                let logits = model.forward_token(voted_token, &mut state);
+                (state, logits)
+            })
+            .unzip();
+
+        self.states = new_states;
+        self.pending_logits = new_logits;
 
         // 4. Track which cell "won" (suggested the voted token)
         for (i, &t) in cell_tokens.iter().enumerate() {
