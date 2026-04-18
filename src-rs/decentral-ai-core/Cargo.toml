@@ -19,5 +19,13 @@ ndarray = { version = "0.16", default-features = false, features = ["std"] }
 rand = "0.8"
 
 [[bin]]
+name = "decentral-ai-core"
+path = "src/main.rs"
+
+[[bin]]
 name = "router"
 path = "src/router_main.rs"
+
+[[bin]]
+name = "shear"
+path = "src/shear_main.rs"
