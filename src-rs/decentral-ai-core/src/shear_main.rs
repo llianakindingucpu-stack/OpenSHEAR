@@ -6,10 +6,13 @@
 //! Mode 2 — Real RWKV-4-169M inference:
 //!   cargo run --bin shear -- --model ../data/rwkv4_169m.bin --prompt "hello world"
 //!
-//! Mode 3 — List options:
+//! Mode 3 — Speculative decoding (ensemble voting):
+//!   cargo run --bin shear -- --speculative --model ../data/rwkv4_169m.bin --prompt "def fib(n):"
+//!
+//! Mode 4 — List options:
 //!   cargo run --bin shear -- --help
 
-use decentral_ai_core::rwkv_model::{self, RwkvModel, RwkvModelState};
+use decentral_ai_core::rwkv_model::{RwkvModel, RwkvModelState};
 use decentral_ai_core::tokenizer::BpeTokenizer;
 use std::time::Instant;
 
@@ -27,6 +30,9 @@ struct Args {
     d_model: usize,
     n_layers: usize,
     warmup: bool,
+    // speculative
+    draft_tokens: usize,
+    min_consensus: f32,
 }
 
 impl Args {
@@ -42,13 +48,16 @@ impl Args {
         let mut d_model = 128;
         let mut n_layers = 2;
         let mut warmup = false;
+        let mut draft_tokens = 4;
+        let mut min_consensus = 0.5;
 
         let mut i = 0;
         while i < args.len() {
             match args[i].as_str() {
-                "--model" => { mode = "model".to_string(); model_path = args.get(i+1).cloned().unwrap_or_default(); i += 1; }
+                "--model" => { model_path = args.get(i+1).cloned().unwrap_or_default(); if mode == "shear" { mode = "model".to_string(); } i += 1; }
                 "--data-dir" => { data_dir = args.get(i+1).cloned().unwrap_or_default(); i += 1; }
                 "--shear" => { mode = "shear".to_string(); }
+                "--speculative" => { mode = "speculative".to_string(); }
                 "--prompt" => { if let Some(p) = args.get(i+1) { prompt = p.clone(); } i += 1; }
                 "--max-new" => { if let Some(v) = args.get(i+1).and_then(|s| s.parse().ok()) { max_new = v; } i += 1; }
                 "--temp" => { if let Some(v) = args.get(i+1).and_then(|s| s.parse().ok()) { temperature = v; } i += 1; }
@@ -56,25 +65,38 @@ impl Args {
                 "--dmodel" => { if let Some(v) = args.get(i+1).and_then(|s| s.parse().ok()) { d_model = v; } i += 1; }
                 "--layers" => { if let Some(v) = args.get(i+1).and_then(|s| s.parse().ok()) { n_layers = v; } i += 1; }
                 "--warmup" => { warmup = true; }
+                "--draft" => { if let Some(v) = args.get(i+1).and_then(|s| s.parse().ok()) { draft_tokens = v; } i += 1; }
+                "--consensus" => { if let Some(v) = args.get(i+1).and_then(|s| s.parse().ok()) { min_consensus = v; } i += 1; }
                 "-h" | "--help" => {
                     println!("SHEAR + RWKV CLI");
+                    println!();
+                    println!("Modes:");
                     println!("  --shear         Random-weight SHEAR demo (default)");
-                    println!("  --model <path>  Load RWKV-4-169M binary, run inference");
+                    println!("  --model <path>  Load RWKV-4-169M binary, run single-cell inference");
+                    println!("  --speculative   Ensemble voting with N cells (real RWKV model)");
+                    println!();
+                    println!("Common options:");
                     println!("  --data-dir <d>  Tokenizer data dir (default: data/)");
                     println!("  --prompt TXT    Input prompt (default: 'Hello, how are you?')");
                     println!("  --max-new N     Max new tokens (default: 30)");
                     println!("  --temp T        Temperature (default: 0.8)");
                     println!("  --warmup        Warmup before timing");
-                    println!("  --cells N       [shear] Number of cells (default: 3)");
-                    println!("  --dmodel N     [shear] Hidden dim (default: 128)");
-                    println!("  --layers N     [shear] Layers per cell (default: 2)");
+                    println!();
+                    println!("Shear options:");
+                    println!("  --cells N       Number of cells (default: 3)");
+                    println!("  --dmodel N      Hidden dim (default: 128)");
+                    println!("  --layers N      Layers per cell (default: 2)");
+                    println!();
+                    println!("Speculative options:");
+                    println!("  --draft N       Draft tokens per round (default: 4)");
+                    println!("  --consensus F   Min consensus ratio (default: 0.5)");
                     std::process::exit(0);
                 }
                 _ => {}
             }
             i += 1;
         }
-        Args { mode, model_path, data_dir, prompt, max_new, temperature, n_cells, d_model, n_layers, warmup }
+        Args { mode, model_path, data_dir, prompt, max_new, temperature, n_cells, d_model, n_layers, warmup, draft_tokens, min_consensus }
     }
 }
 
@@ -270,12 +292,126 @@ fn run_rwkv(args: &Args) {
     println!("[Done]");
 }
 
+// ===================== Speculative Decoding =====================
+
+fn run_speculative(args: &Args) {
+    use decentral_ai_core::speculative::{SpeculativeEngine, SpeculativeConfig, VoteStrategy};
+
+    println!();
+    println!("╔══════════════════════════════════════════════════╗");
+    println!("║      SHEAR Speculative Decoding Engine        ║");
+    println!("╚══════════════════════════════════════════════════╝");
+    println!();
+
+    // 1. Load tokenizer
+    println!("[Tokenizer] Loading BPE tokenizer from {}", args.data_dir);
+    let tokenizer = match BpeTokenizer::load(&args.data_dir) {
+        Ok(t) => t,
+        Err(e) => { eprintln!("[ERROR] Failed to load tokenizer: {}", e); std::process::exit(1); }
+    };
+    println!("  Vocab size: {}", tokenizer.vocab_size());
+
+    // 2. Load model
+    println!("[Model]  Loading {}", args.model_path);
+    let load_start = Instant::now();
+    let model = match RwkvModel::load_from_file(&args.model_path) {
+        Ok(m) => m,
+        Err(e) => { eprintln!("[ERROR] Failed to load model: {}", e); std::process::exit(1); }
+    };
+    println!("  Loaded in {:?}", load_start.elapsed());
+    println!("  Params: {} ({:.1}M)", model.total_params(), model.total_params() as f64 / 1_000_000.0);
+    println!();
+
+    // 3. Config
+    let config = SpeculativeConfig {
+        n_cells: args.n_cells,
+        temperatures: (0..args.n_cells).map(|i| 0.5 + 0.3 * i as f32).collect(),
+        strategy: VoteStrategy::Majority,
+        min_consensus: args.min_consensus,
+        top_p: 0.9,
+        draft_tokens: args.draft_tokens,
+    };
+
+    println!("[Config] {} cells, temperatures: {:?}", config.n_cells, config.temperatures);
+    println!("  Strategy: {:?}, min_consensus: {:.2}", config.strategy, config.min_consensus);
+    println!();
+
+    // 4. Encode prompt
+    let input_ids = tokenizer.encode_with_bos(&args.prompt);
+    println!("[Prompt]  \"{}\"", args.prompt);
+    println!("  Tokens: {} ids", input_ids.len());
+    println!();
+
+    // 5. Create engine
+    let mut engine = SpeculativeEngine::new(model, config);
+
+    // 6. Generate with baseline comparison
+    println!("╔══════════════════════════════════════════════════╗");
+    println!("║              Baseline (single cell)            ║");
+    println!("╚══════════════════════════════════════════════════╝");
+    let (baseline_ids, baseline_time) = engine.generate_baseline(&input_ids, args.max_new, 0.8);
+    let baseline_new = &baseline_ids[input_ids.len()..];
+    println!("  Generated: {} tokens in {} ms", baseline_new.len(), baseline_time);
+    if baseline_time > 0 {
+        println!("  Speed: {:.1} tok/s", baseline_new.len() as f64 * 1000.0 / baseline_time as f64);
+    }
+    println!();
+
+    // 7. Generate with ensemble voting
+    println!("╔══════════════════════════════════════════════════╗");
+    println!("║           Ensemble Voting ({} cells)           ║", args.n_cells);
+    println!("╚══════════════════════════════════════════════════╝");
+
+    engine.reset();
+    let (ensemble_ids, stats) = engine.generate(&input_ids, args.max_new);
+    let ensemble_new = &ensemble_ids[input_ids.len()..];
+
+    println!("  Generated: {} tokens in {} ms", ensemble_new.len(), stats.total_time_ms);
+    println!("  Speed: {:.1} tok/s", stats.tokens_per_second());
+    println!("  Avg consensus: {:.2}%", stats.avg_consensus() * 100.0);
+    println!("  Cell hit rates: {:?}", stats.cell_hit_rates().iter().map(|r| format!("{:.1}%", r * 100.0)).collect::<Vec<_>>());
+    println!();
+
+    // 8. Decode outputs
+    let baseline_text = tokenizer.decode(baseline_new);
+    let ensemble_text = tokenizer.decode(ensemble_new);
+
+    println!("╔══════════════════════════════════════════════════╗");
+    println!("║                   Outputs                      ║");
+    println!("╚══════════════════════════════════════════════════╝");
+    println!();
+    println!("[Baseline Output]");
+    println!("{}", baseline_text);
+    println!();
+    println!("[Ensemble Output]");
+    println!("{}", ensemble_text);
+    println!();
+
+    // 9. Show speed comparison
+    if baseline_time > 0 && stats.total_time_ms > 0 {
+        let baseline_speed = baseline_new.len() as f64 * 1000.0 / baseline_time as f64;
+        let ensemble_speed = stats.tokens_per_second() as f64;
+        println!("[Speed Comparison]");
+        println!("  Baseline: {:.1} tok/s", baseline_speed);
+        println!("  Ensemble: {:.1} tok/s", ensemble_speed);
+        let ratio = ensemble_speed / baseline_speed;
+        if ratio < 1.0 {
+            println!("  Overhead: {:.1}x slower (expected: {} cells × forward)", 1.0 / ratio, args.n_cells);
+        } else {
+            println!("  Speedup: {:.1}x faster", ratio);
+        }
+    }
+    println!();
+    println!("[Done]");
+}
+
 // ===================== Main =====================
 
 fn main() {
     let args = Args::parse();
     match args.mode.as_str() {
         "model" => run_rwkv(&args),
+        "speculative" => run_speculative(&args),
         _ => run_shear(&args),
     }
 }

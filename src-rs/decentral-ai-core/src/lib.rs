@@ -7,6 +7,7 @@ pub mod network;
 pub mod router;
 pub mod rwkv_model;
 pub mod rwkv_weights;
+pub mod speculative;
 pub mod tokenizer;
 
 use serde::{Deserialize, Serialize};
