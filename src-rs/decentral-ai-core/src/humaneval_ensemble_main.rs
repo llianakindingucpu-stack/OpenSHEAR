@@ -10,7 +10,8 @@ fn main() {
     let args: Vec<String> = env::args().collect();
 
     let mut model_path = String::new();
-    let mut data_path = String::from("data/HumanEval.jsonl");
+    let data_dir = format!("{}/data", env!("CARGO_MANIFEST_DIR"));
+    let mut data_path = format!("{}/HumanEval.jsonl", data_dir);
     let mut output_baseline = String::from("humaneval_baseline.jsonl");
     let mut output_ensemble = String::from("humaneval_ensemble.jsonl");
     let mut max_tokens: usize = 128;
