@@ -4,6 +4,8 @@ pub mod aggregator;
 pub mod cell;
 pub mod network;
 pub mod router;
+pub mod rwkv_model;
+pub mod rwkv_weights;
 
 use serde::{Deserialize, Serialize};
 
