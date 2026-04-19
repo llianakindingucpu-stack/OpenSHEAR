@@ -1,27 +1,36 @@
-# Rust build artifacts
+# Rust
 target/
+*.pdb
 
 # Python
 __pycache__/
 *.pyc
 *.pyo
+*.egg-info/
 
-# Logs
-*.log
-worker_out.txt
-worker_err.txt
-worker_err.log
-
-# Data (too large for repo)
+# Data & model weights (too large for repo)
 data/
-
-# Model weights (too large)
 *.pth
 *.safetensors
 *.gguf
+*.bin
+*.parquet
 
-# Databases
+# Logs & databases
+*.log
 *.db
+*.sqlite3
 
 # Environment
 .env
+.env.*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store

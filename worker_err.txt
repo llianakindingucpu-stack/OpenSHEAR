@@ -1,0 +1,4 @@
+  File "D:\IdeaProjects\decentral-ai\scripts\inference_worker.py", line 78
+    length = int(self.headers.get("Content-Length", 0)
+                ^
+SyntaxError: '(' was never closed
