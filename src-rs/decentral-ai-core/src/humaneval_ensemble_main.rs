@@ -16,6 +16,7 @@ fn main() {
     let mut output_ensemble = String::from("humaneval_ensemble.jsonl");
     let mut max_tokens: usize = 128;
     let mut n_cells: usize = 3;
+    let mut skip_baseline = false;
 
     let mut i = 1;
     while i < args.len() {
@@ -26,15 +27,23 @@ fn main() {
             "--output-ensemble" => { output_ensemble = args.get(i+1).cloned().unwrap_or_default(); i += 2; }
             "--max-tokens" => { max_tokens = args.get(i+1).and_then(|s| s.parse().ok()).unwrap_or(128); i += 2; }
             "--cells" => { n_cells = args.get(i+1).and_then(|s| s.parse().ok()).unwrap_or(3); i += 2; }
+            "--skip-baseline" => { skip_baseline = true; i += 1; }
             _ => { i += 1; }
         }
     }
 
     if model_path.is_empty() {
-        eprintln!("Usage: humaneval_ensemble --model <path> [--data path] [--max-tokens N] [--cells N]");
+        eprintln!("Usage: humaneval_ensemble --model <path> [options]");
         eprintln!("");
-        eprintln!("Runs HumanEval with both baseline (single cell) and ensemble (N cells).");
-        eprintln!("Outputs: humaneval_baseline.jsonl, humaneval_ensemble.jsonl");
+        eprintln!("Options:");
+        eprintln!("  --data <path>              HumanEval data file");
+        eprintln!("  --output-baseline <path>    Baseline output (default: humaneval_baseline.jsonl)");
+        eprintln!("  --output-ensemble <path>    Ensemble output (default: humaneval_ensemble.jsonl)");
+        eprintln!("  --max-tokens <N>            Max generation tokens (default: 128)");
+        eprintln!("  --cells <N>                 Number of ensemble cells (default: 3)");
+        eprintln!("  --skip-baseline             Skip Phase 1 baseline, run ensemble only");
+        eprintln!("");
+        eprintln!("Resume: automatically skips tasks already present in output files.");
         std::process::exit(1);
     }
 
@@ -47,13 +56,19 @@ fn main() {
     let model = RwkvModel::load_from_file(&model_path).expect("Failed to load model");
     eprintln!("  Params: {}", model.total_params());
 
-    // Run baseline
-    eprintln!("\n========================================");
-    eprintln!("  Phase 1: Baseline (single cell)");
-    eprintln!("========================================\n");
-    decentral_ai_core::humaneval::run_humaneval(
-        &model, &tokenizer, &data_path, &output_baseline, max_tokens,
-    ).expect("Baseline HumanEval failed");
+    // Phase 1: Baseline (single cell) — skip if flag set or output exists
+    let baseline_exists = std::path::Path::new(&output_baseline).exists();
+    if !skip_baseline && !baseline_exists {
+        eprintln!("\n========================================");
+        eprintln!("  Phase 1: Baseline (single cell)");
+        eprintln!("========================================\n");
+        decentral_ai_core::humaneval::run_humaneval(
+            &model, &tokenizer, &data_path, &output_baseline, max_tokens,
+        ).expect("Baseline HumanEval failed");
+    } else {
+        eprintln!("\n[SKIP] Baseline phase ({}output exists)",
+            if skip_baseline { "flag " } else { "" });
+    }
 
     // Run ensemble
     eprintln!("\n========================================");

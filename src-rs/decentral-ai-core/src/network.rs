@@ -138,7 +138,7 @@ pub fn new_shared_state() -> SharedState {
 // ---------------------------------------------------------------------------
 
 /// Fields shared across the main loop and spawned tasks.
-pub(crate) struct P2PShared {
+pub struct P2PShared {
     peer_id: String,
     tier: NodeTier,
     peers: SharedState,
@@ -155,7 +155,8 @@ const TOPIC_VERIFIED:   &str = "shear/verified/1";
 
 pub struct P2PRuntime {
     pub kad_swarm: Swarm<kad::Behaviour<kad::store::MemoryStore>>,
-    pub mdns: mdns::tokio::Behaviour,
+    /// Option so we can `.take()` it for the spawned thread.
+    pub mdns: Option<mdns::tokio::Behaviour>,
     /// Wrapped in Arc<Mutex<>> so spawned tasks can access it immutably
     /// while the main loop accesses it via &mut self.
     pub gossipsub: Arc<Mutex<gossipsub::Behaviour>>,
@@ -216,7 +217,7 @@ impl P2PRuntime {
 
         Ok(Self {
             kad_swarm,
-            mdns: mdns_behaviour,
+            mdns: Some(mdns_behaviour),
             gossipsub: Arc::new(Mutex::new(gossipsub_behaviour)),
             shared: Arc::new(P2PShared {
                 peer_id,
@@ -378,9 +379,8 @@ pub async fn run_p2p(mut runtime: P2PRuntime, app_peers: SharedState) {
         tracing::warn!("[P2P] Record publish failed: {}", e);
     }
 
-    // Extract mDNS before spawning (avoids partial move of runtime)
-    let mdns = std::mem::replace(&mut runtime.mdns, unsafe { std::mem::zeroed() });
-    // Spawn mDNS polling task (uses std::thread since Context is not Send)
+    // Take mDNS out of runtime for the spawned thread
+    let mdns = runtime.mdns.take().expect("mdns already taken");
     spawn_mdns_task(mdns, runtime.shared.clone());
 
     // Spawn heartbeat task (self-contained, uses Arc<Mutex<gossipsub>>)
@@ -402,25 +402,28 @@ pub async fn run_p2p(mut runtime: P2PRuntime, app_peers: SharedState) {
         });
     }
 
-    // Kad mDNS flush interval
-    let mut process_mdns_interval = tokio::time::interval(std::time::Duration::from_secs(5));
+    // Periodically flush mDNS discoveries into Kad routing + app peer table
+    let mut flush_interval = tokio::time::interval(std::time::Duration::from_secs(5));
+    let local_tier = runtime.shared.tier;
 
     loop {
         tokio::select! {
-            // Kad Swarm events
+            // Kad Swarm events — mirror connections into app peer table
             event = runtime.kad_swarm.next() => {
                 match event {
                     Some(libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, .. }) => {
-                        tracing::info!("[P2P] Kad: connected to {:?}", peer_id);
+                        let pid = peer_id.to_base58();
+                        tracing::info!("[P2P] Kad: connected to {}", pid);
+                        let record = NodeRecord::new(&pid, local_tier);
+                        app_peers.write().await.insert(pid.clone(), record);
                     }
                     Some(libp2p::swarm::SwarmEvent::ConnectionClosed { peer_id, .. }) => {
-                        tracing::info!("[P2P] Kad: disconnected {:?}", peer_id);
+                        let pid = peer_id.to_base58();
+                        tracing::info!("[P2P] Kad: disconnected {}", pid);
+                        app_peers.write().await.remove(&pid);
                     }
                     Some(libp2p::swarm::SwarmEvent::Dialing { peer_id, .. }) => {
                         tracing::debug!("[P2P] Kad: dialing {:?}", peer_id);
-                    }
-                    Some(libp2p::swarm::SwarmEvent::NewListenAddr { .. }) => {
-                        // Kad manages listen addr internally
                     }
                     None => {
                         tracing::warn!("[P2P] Kad Swarm stream ended unexpectedly");
@@ -429,15 +432,18 @@ pub async fn run_p2p(mut runtime: P2PRuntime, app_peers: SharedState) {
                 }
             }
 
-            // Process pending mDNS discoveries → add to Kad
-            _ = process_mdns_interval.tick() => {
+            // Flush mDNS discoveries → Kad routing + app peer table
+            _ = flush_interval.tick() => {
                 let pending: Vec<_> = {
                     let mut q = runtime.shared.mdns_pending.write().await;
                     std::mem::take(&mut *q)
                 };
                 for (peer_id, addr) in pending {
-                    runtime.kad_swarm.behaviour_mut().add_address(&peer_id, addr.clone());
-                    tracing::info!("[P2P] Kad: added mDNS peer {} at {}", peer_id, addr);
+                    runtime.kad_swarm.behaviour_mut().add_address(&peer_id, addr);
+                    let pid = peer_id.to_base58();
+                    tracing::info!("[P2P] Kad: added mDNS peer {}", pid);
+                    let record = NodeRecord::new(&pid, local_tier);
+                    app_peers.write().await.insert(pid, record);
                 }
             }
         }
