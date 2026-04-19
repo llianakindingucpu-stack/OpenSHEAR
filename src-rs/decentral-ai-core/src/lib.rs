@@ -10,6 +10,7 @@ pub mod rwkv_weights;
 pub mod speculative;
 pub mod tokenizer;
 
+use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone)]
@@ -18,11 +19,11 @@ pub struct AppState {
     pub role: NodeRole,
     pub credits: f64,
     pub reputation: f64,
-    pub p2p_state: network::SharedState,
+    pub p2p_state: Arc<network::P2PState>,
 }
 
 impl AppState {
-    pub fn new(node_id: String, role: NodeRole, p2p_state: network::SharedState) -> Self {
+    pub fn new(node_id: String, role: NodeRole, p2p_state: Arc<network::P2PState>) -> Self {
         Self { node_id, role, credits: 100.0, reputation: 50.0, p2p_state }
     }
 }

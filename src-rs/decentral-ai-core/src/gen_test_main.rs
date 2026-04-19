@@ -28,7 +28,7 @@ fn main() {
     let (gen2, dur2) = model.generate(&ids2, 50, 0.8);
     let new2 = &gen2[ids2.len()..];
     let dec2 = tok.decode(new2);
-    let nan2 = false; // already confirmed 0 above
+    let _nan2 = false; // already confirmed 0 above
     println!("Test 2: HumanEval prompt");
     println!("  Generated {} new tokens", new2.len());
     println!("  Speed: {:.1} tok/s", new2.len() as f32 / dur2.as_secs_f32().max(0.001));
