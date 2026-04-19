@@ -295,7 +295,7 @@ fn run_rwkv(args: &Args) {
 // ===================== Speculative Decoding =====================
 
 fn run_speculative(args: &Args) {
-    use decentral_ai_core::speculative::{SpeculativeEngine, SpeculativeConfig, VoteStrategy};
+    use decentral_ai_core::speculative::{SpeculativeEngine, SpeculativeConfig, VoteStrategy, CellRole};
 
     println!();
     println!("╔══════════════════════════════════════════════════╗");
@@ -326,6 +326,7 @@ fn run_speculative(args: &Args) {
     let config = SpeculativeConfig {
         n_cells: args.n_cells,
         temperatures: (0..args.n_cells).map(|i| 0.5 + 0.3 * i as f32).collect(),
+        cell_roles: (0..args.n_cells).map(|_| CellRole::general()).collect(),
         strategy: VoteStrategy::Majority,
         min_consensus: args.min_consensus,
         top_p: 0.9,
@@ -363,7 +364,7 @@ fn run_speculative(args: &Args) {
     println!("╚══════════════════════════════════════════════════╝");
 
     engine.reset();
-    let (ensemble_ids, stats) = engine.generate(&input_ids, args.max_new);
+    let (ensemble_ids, stats) = engine.generate(&args.prompt, &input_ids, args.max_new);
     let ensemble_new = &ensemble_ids[input_ids.len()..];
 
     println!("  Generated: {} tokens in {} ms", ensemble_new.len(), stats.total_time_ms);

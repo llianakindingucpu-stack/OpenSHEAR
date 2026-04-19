@@ -4,7 +4,7 @@ use std::env;
 
 use decentral_ai_core::rwkv_model::RwkvModel;
 use decentral_ai_core::tokenizer::BpeTokenizer;
-use decentral_ai_core::speculative::{SpeculativeEngine, SpeculativeConfig, VoteStrategy};
+use decentral_ai_core::speculative::{SpeculativeEngine, SpeculativeConfig, VoteStrategy, CellRole};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -63,6 +63,7 @@ fn main() {
     let config = SpeculativeConfig {
         n_cells,
         temperatures: (0..n_cells).map(|i| 0.5 + 0.3 * i as f32).collect(),
+        cell_roles: (0..n_cells).map(|_| CellRole::general()).collect(),
         strategy: VoteStrategy::Majority,
         min_consensus: 0.0,
         draft_tokens: 0,
@@ -143,9 +144,9 @@ fn run_humaneval_ensemble(
             .map(|id| if id >= vocab_size { 0 } else { id })
             .collect();
 
-        // Generate with ensemble voting
+        // Generate with ensemble voting (Phase 1 backward-compat)
         let gen_start = std::time::Instant::now();
-        let (generated_ids, stats) = engine.generate(&token_ids, max_tokens);
+        let (generated_ids, stats) = engine.generate_phase1(&token_ids, max_tokens);
         let gen_time = gen_start.elapsed();
 
         total_tokens += generated_ids.len();
