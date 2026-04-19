@@ -682,6 +682,185 @@
       background: rgba(57,255,20,0.05);
     }
 
+    /* ==================== TOKENOMICS ==================== */
+    .token-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin: 40px 0;
+    }
+    .token-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+      transition: border-color 0.3s;
+    }
+    .token-card:hover { border-color: var(--border-bright); }
+    .token-card.accent-card {
+      border-color: rgba(0,212,255,0.3);
+      background: linear-gradient(135deg, var(--bg2), rgba(0,212,255,0.05));
+    }
+    .token-card.accent-card:hover { border-color: var(--cyan); }
+    .token-icon {
+      font-family: var(--font-mono);
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--green);
+      margin-bottom: 12px;
+    }
+    .accent-card .token-icon { color: var(--cyan); }
+    .token-card h3 { font-family: var(--font-head); font-size: 22px; margin-bottom: 4px; }
+    .token-type {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+    .token-card ul { list-style: none; }
+    .token-card li {
+      font-size: 14px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--bg3);
+      color: var(--text-muted);
+    }
+    .token-card li:last-child { border-bottom: none; }
+    .token-card li::before { content: "+ "; color: var(--green); }
+    .accent-card li::before { color: var(--cyan); }
+
+    .token-flow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 32px 0;
+      padding: 20px;
+      background: var(--bg2);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .flow-step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+    .flow-num {
+      background: var(--green);
+      color: var(--bg);
+      border-radius: 50%;
+      width: 22px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .flow-arrow { color: var(--green); font-size: 18px; }
+
+    .token-staking { margin: 32px 0; }
+    .token-staking h3 {
+      font-family: var(--font-head);
+      font-size: 18px;
+      margin-bottom: 16px;
+      color: var(--text);
+    }
+    .stake-table {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+    .stake-row {
+      display: grid;
+      grid-template-columns: 60px 1fr 1fr 120px 100px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--bg3);
+      gap: 8px;
+    }
+    .stake-row:last-child { border-bottom: none; }
+    .stake-header {
+      background: var(--bg3);
+      color: var(--green);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+    .stake-row:not(.stake-header) { color: var(--text-muted); }
+    .stake-row:not(.stake-header) span:first-child { color: var(--cyan); font-weight: 600; }
+
+    .token-allocation { margin: 24px 0 16px; }
+    .alloc-bar {
+      display: flex;
+      height: 28px;
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+    .alloc-seg {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: var(--bg);
+    }
+    .alloc-seg.community { background: var(--green); }
+    .alloc-seg.foundation { background: #8b5cf6; }
+    .alloc-seg.team { background: #f59e0b; }
+    .alloc-seg.backers { background: #ef4444; }
+    .alloc-seg.airdrop { background: #06b6d4; }
+    .alloc-note {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+      font-family: var(--font-mono);
+    }
+
+    .inflation-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin: 28px 0;
+    }
+    .inflation-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+    }
+    .infl-num {
+      font-family: var(--font-head);
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--green);
+      line-height: 1;
+    }
+    .accent-card ~ .token-card ~ .inflation-card .infl-num,
+    .token-staking ~ .inflation-row .infl-num { color: var(--cyan); }
+    .infl-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin: 6px 0 4px;
+      font-family: var(--font-mono);
+    }
+    .infl-detail { font-size: 11px; color: var(--text-dim); font-family: var(--font-mono); }
+
+    @media (max-width: 768px) {
+      .token-grid { grid-template-columns: 1fr; }
+      .inflation-row { grid-template-columns: repeat(2, 1fr); }
+      .stake-row { grid-template-columns: 50px 1fr 80px 60px; }
+      .stake-row span:nth-child(3) { display: none; }
+    }
+
     /* ==================== ROADMAP ==================== */
     .roadmap { margin-top: 48px; }
     .roadmap-item {
@@ -816,6 +995,7 @@
     <li><a href="#how">How</a></li>
     <li><a href="#benchmarks">Benchmarks</a></li>
     <li><a href="#nodes">Nodes</a></li>
+    <li><a href="#tokenomics">Tokenomics</a></li>
     <li><a href="#quickstart">Start</a></li>
     <li>
       <a href="https://github.com/llianakindingucpu-stack/OpenSHEAR" class="gh-star" target="_blank">
@@ -1181,6 +1361,107 @@
 </section>
 
 <!-- ROADMAP -->
+<section id="tokenomics">
+  <div class="container">
+    <div class="section-label">Tokenomics</div>
+    <h2>Dual-token <span class="accent">economics</span></h2>
+    <p class="section-desc">Two tokens, each doing what it does best. SHEAR-USD for commerce. $SHEAR for governance and growth.</p>
+
+    <div class="token-grid">
+      <div class="token-card">
+        <div class="token-icon">USD</div>
+        <h3>SHEAR-USD</h3>
+        <div class="token-type">Stablecoin &middot; 1:1 USD</div>
+        <ul>
+          <li>Users pay for inference</li>
+          <li>Nodes receive stable income</li>
+          <li>100% treasury backed</li>
+          <li>No algorithmic peg risk</li>
+          <li>Mint/burn on demand</li>
+        </ul>
+      </div>
+      <div class="token-card accent-card">
+        <div class="token-icon">$</div>
+        <h3>$SHEAR</h3>
+        <div class="token-type">Utility Token &middot; 1B supply</div>
+        <ul>
+          <li>Stake to run a node</li>
+          <li>1 token = 1 governance vote</li>
+          <li>Up to 50% fee discount</li>
+          <li>Node inflation rewards</li>
+          <li>Security bond (slashable)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="token-flow">
+      <div class="flow-step"><span class="flow-num">1</span><span>User pays SHEAR-USD</span></div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-step"><span class="flow-num">2</span><span>Converted to Credits</span></div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-step"><span class="flow-num">3</span><span>Request submitted</span></div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-step"><span class="flow-num">4</span><span>Nodes do work</span></div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-step"><span class="flow-num">5</span><span>95% to nodes, 3% to foundation</span></div>
+    </div>
+
+    <div class="token-staking">
+      <h3>Node Staking Tiers</h3>
+      <div class="stake-table">
+        <div class="stake-row stake-header">
+          <span>Tier</span><span>Role</span><span>Hardware</span><span>$SHEAR Stake</span><span>Multiplier</span>
+        </div>
+        <div class="stake-row"><span>L0</span><span>Collector</span><span>CPU</span><span>None</span><span>-</span></div>
+        <div class="stake-row"><span>L1</span><span>Light Inference</span><span>CPU + 4GB</span><span>10,000</span><span>1x</span></div>
+        <div class="stake-row"><span>L2</span><span>Standard</span><span>RTX 3060</span><span>100,000</span><span>3x</span></div>
+        <div class="stake-row"><span>L3</span><span>Heavy</span><span>RTX 4090</span><span>1,000,000</span><span>10x</span></div>
+        <div class="stake-row"><span>L4</span><span>Datacenter</span><span>A100/H100</span><span>10,000,000</span><span>50x</span></div>
+      </div>
+    </div>
+
+    <div class="token-allocation">
+      <div class="alloc-chart">
+        <div class="alloc-bar">
+          <div class="alloc-seg community" style="width:60%">Community 60%</div>
+          <div class="alloc-seg foundation" style="width:15%">Found. 15%</div>
+          <div class="alloc-seg team" style="width:12%">Team 12%</div>
+          <div class="alloc-seg backers" style="width:8%">Back. 8%</div>
+          <div class="alloc-seg airdrop" style="width:5%">Aird. 5%</div>
+        </div>
+      </div>
+      <p class="alloc-note">1B total supply fixed at genesis &middot; No ICO/IEO &middot; 60% distributed via staking rewards</p>
+    </div>
+
+    <div class="inflation-row">
+      <div class="inflation-card">
+        <div class="infl-num">5%</div>
+        <div class="infl-label">Year 1 Inflation</div>
+        <div class="infl-detail">50M $SHEAR to stakers</div>
+      </div>
+      <div class="inflation-card">
+        <div class="infl-num">80%</div>
+        <div class="infl-label">Of Inflation</div>
+        <div class="infl-detail">Goes to staked nodes</div>
+      </div>
+      <div class="inflation-card">
+        <div class="infl-num">$0.0001</div>
+        <div class="infl-label">Per Credit</div>
+        <div class="infl-detail">Fixed accounting unit</div>
+      </div>
+      <div class="inflation-card">
+        <div class="infl-num">1:1</div>
+        <div class="infl-label">SHEAR-USD to USD</div>
+        <div class="infl-detail">Treasury backed, always redeemable</div>
+      </div>
+    </div>
+
+    <p class="section-cta">
+      <a href="docs/TOKENOMICS.md" class="btn">Read Full Tokenomics &rarr;</a>
+    </p>
+  </div>
+</section>
+
 <section id="roadmap">
   <div class="container">
     <div class="section-label">Roadmap</div>
@@ -1270,6 +1551,7 @@
           <li><a href="docs/SHEAR_DESIGN.md">Design Principles</a></li>
           <li><a href="docs/SPECULATIVE_DECODING.md">Speculative Decoding</a></li>
           <li><a href="docs/NODE_HIERARCHY.md">Node Hierarchy</a></li>
+          <li><a href="docs/TOKENOMICS.md">Tokenomics</a></li>
           <li><a href="docs/BENCHMARKS.md">Benchmarks</a></li>
         </ul>
       </div>
