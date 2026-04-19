@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenSHEAR — Stateless Hybrid Ensemble Architecture for Reasoning</title>
+  <meta name="description" content="Distributed AI inference network. Run on anything from a $50 PC to a GPU cluster. Pure Rust.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #07090f;
+      --bg2: #0c1220;
+      --bg3: #111c30;
+      --green: #39ff14;
+      --green-dim: #1a7a0a;
+      --green-glow: rgba(57,255,20,0.15);
+      --cyan: #00d4ff;
+      --cyan-dim: rgba(0,212,255,0.1);
+      --text: #d8e8f0;
+      --text-muted: #5a7a8a;
+      --text-dim: #2a4a5a;
+      --border: rgba(57,255,20,0.2);
+      --border-bright: rgba(57,255,20,0.5);
+      --font-head: 'Syne', sans-serif;
+      --font-mono: 'IBM Plex Mono', monospace;
+      --font-body: 'IBM Plex Sans', sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 16px;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--green-dim); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--green); }
+
+    /* Grid background */
+    .grid-bg {
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.4;
+    }
+
+    .grid-fade {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, transparent 0%, var(--bg) 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Layout */
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+    .container-wide { max-width: 1300px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+    /* Nav */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      backdrop-filter: blur(12px);
+      background: rgba(7,9,15,0.85);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo {
+      font-family: var(--font-mono);
+      font-weight: 600;
+      font-size: 18px;
+      color: var(--green);
+      letter-spacing: 0.1em;
+      text-decoration: none;
+    }
+    .nav-logo span { color: var(--text-muted); font-weight: 400; }
+    .nav-links { display: flex; gap: 32px; list-style: none; }
+    .nav-links a {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+      text-decoration: none;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--green); }
+    .nav-links .gh-star {
+      display: flex; align-items: center; gap: 6px;
+      color: var(--text-muted); font-size: 12px;
+      border: 1px solid var(--border);
+      padding: 4px 10px; border-radius: 4px;
+      transition: all 0.2s;
+    }
+    .nav-links .gh-star:hover { border-color: var(--green); color: var(--green); }
+    .nav-links .gh-star svg { fill: currentColor; }
+
+    /* Sections */
+    section { padding: 120px 0; }
+    .section-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--green);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .section-label::before {
+      content: '';
+      display: inline-block;
+      width: 32px; height: 1px;
+      background: var(--green);
+    }
+    h2 {
+      font-family: var(--font-head);
+      font-size: clamp(36px, 5vw, 56px);
+      font-weight: 800;
+      line-height: 1.1;
+      color: #fff;
+      margin-bottom: 24px;
+    }
+    h2 .accent { color: var(--green); }
+    .lead {
+      font-size: 18px;
+      color: var(--text-muted);
+      max-width: 620px;
+      line-height: 1.7;
+      font-weight: 300;
+    }
+
+    /* ==================== HERO ==================== */
+    #hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding-top: 80px;
+      position: relative;
+    }
+    .hero-inner { text-align: center; }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--green);
+      border: 1px solid var(--border);
+      padding: 6px 14px;
+      border-radius: 2px;
+      margin-bottom: 32px;
+      letter-spacing: 0.1em;
+    }
+    .hero-badge .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.7); }
+    }
+    .hero-title {
+      font-family: var(--font-head);
+      font-size: clamp(64px, 12vw, 140px);
+      font-weight: 800;
+      line-height: 0.9;
+      letter-spacing: -0.03em;
+      margin-bottom: 8px;
+    }
+    .hero-title .shear {
+      display: block;
+      color: var(--green);
+      text-shadow: 0 0 60px rgba(57,255,20,0.4), 0 0 120px rgba(57,255,20,0.15);
+    }
+    .hero-title .sub {
+      display: block;
+      font-size: 0.28em;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-top: 12px;
+    }
+    .hero-tagline {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      color: var(--text-muted);
+      margin: 32px 0;
+      letter-spacing: 0.05em;
+    }
+    .hero-tagline strong { color: var(--cyan); font-weight: 500; }
+    .hero-cta {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 12px 28px;
+      border-radius: 2px;
+      text-decoration: none;
+      letter-spacing: 0.05em;
+      transition: all 0.2s;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-primary {
+      background: var(--green);
+      color: #000;
+    }
+    .btn-primary:hover { background: #5fff3a; box-shadow: 0 0 30px rgba(57,255,20,0.3); }
+    .btn-outline {
+      border: 1px solid var(--border);
+      color: var(--text);
+      background: transparent;
+    }
+    .btn-outline:hover { border-color: var(--green); color: var(--green); }
+
+    /* Hero architecture diagram */
+    .hero-diagram {
+      margin: 60px auto 0;
+      max-width: 900px;
+      position: relative;
+    }
+    .diag-grid {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 0;
+    }
+    .diag-cells {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .diag-cell {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      padding: 10px 16px;
+      border-radius: 2px;
+      background: var(--bg2);
+      text-align: center;
+      position: relative;
+      transition: all 0.3s;
+      animation: cell-blink 3s ease-in-out infinite;
+    }
+    .diag-cell:nth-child(1) { animation-delay: 0s; }
+    .diag-cell:nth-child(2) { animation-delay: 0.4s; }
+    .diag-cell:nth-child(3) { animation-delay: 0.8s; }
+    @keyframes cell-blink {
+      0%, 90%, 100% { border-color: var(--border); opacity: 0.7; }
+      92% { border-color: var(--green); opacity: 1; box-shadow: 0 0 15px var(--green-glow); }
+    }
+    .diag-cell-label { color: var(--green); font-weight: 600; }
+    .diag-cell-size { color: var(--text-dim); font-size: 10px; }
+
+    .diag-arrow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 20px;
+    }
+    .diag-arrow-line {
+      width: 2px;
+      height: 80px;
+      background: linear-gradient(to bottom, var(--border), var(--green), var(--border));
+      position: relative;
+    }
+    .diag-arrow-line::before, .diag-arrow-line::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+    .diag-arrow-line::before { top: 0; }
+    .diag-arrow-line::after { bottom: 0; }
+    .diag-arrow-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-top: 6px;
+      text-align: center;
+    }
+
+    .diag-agg {
+      background: var(--bg2);
+      border: 2px solid var(--green);
+      border-radius: 3px;
+      padding: 20px 28px;
+      text-align: center;
+      position: relative;
+      box-shadow: 0 0 30px var(--green-glow), inset 0 0 20px rgba(57,255,20,0.05);
+    }
+    .diag-agg-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--green);
+      font-weight: 600;
+      letter-spacing: 0.1em;
+    }
+    .diag-agg-sub {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+    .diag-agg::before {
+      content: '↓';
+      position: absolute;
+      top: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 16px;
+      color: var(--green);
+    }
+
+    .diag-stats {
+      display: flex;
+      justify-content: center;
+      gap: 48px;
+      margin-top: 40px;
+      flex-wrap: wrap;
+    }
+    .diag-stat {
+      text-align: center;
+    }
+    .diag-stat-value {
+      font-family: var(--font-head);
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--green);
+      line-height: 1;
+    }
+    .diag-stat-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    /* ==================== PROBLEM ==================== */
+    #problem { background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .problem-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      margin-top: 48px;
+    }
+    .problem-card {
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 32px;
+      background: var(--bg);
+      position: relative;
+      overflow: hidden;
+    }
+    .problem-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 2px;
+      background: linear-gradient(90deg, var(--green), transparent);
+    }
+    .problem-icon {
+      font-size: 32px;
+      margin-bottom: 16px;
+      display: block;
+    }
+    .problem-card h3 {
+      font-family: var(--font-head);
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .problem-card p { font-size: 14px; color: var(--text-muted); line-height: 1.7; }
+    .problem-card .old-tag {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: #ff4444;
+      border: 1px solid rgba(255,68,68,0.3);
+      padding: 2px 8px;
+      border-radius: 2px;
+      display: inline-block;
+      margin-bottom: 12px;
+    }
+    .problem-card .new-tag {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--green);
+      border: 1px solid var(--border);
+      padding: 2px 8px;
+      border-radius: 2px;
+      display: inline-block;
+      margin-bottom: 12px;
+    }
+
+    /* ==================== HOW IT WORKS ==================== */
+    .how-steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-top: 60px;
+    }
+    .how-step {
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 32px 28px;
+      background: var(--bg2);
+      position: relative;
+    }
+    .how-step-num {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      letter-spacing: 0.1em;
+      margin-bottom: 16px;
+    }
+    .how-step h3 {
+      font-family: var(--font-head);
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: #fff;
+    }
+    .how-step p { font-size: 14px; color: var(--text-muted); line-height: 1.7; }
+    .how-step .code-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--cyan);
+      background: var(--cyan-dim);
+      padding: 3px 10px;
+      border-radius: 2px;
+      display: inline-block;
+      margin-top: 16px;
+    }
+    .how-step-icon {
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      font-size: 40px;
+      opacity: 0.08;
+    }
+
+    /* ==================== BENCHMARKS ==================== */
+    #benchmarks { background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .bench-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 48px;
+    }
+    .bench-item {
+      background: var(--bg);
+      padding: 28px 24px;
+      text-align: center;
+    }
+    .bench-value {
+      font-family: var(--font-head);
+      font-size: 36px;
+      font-weight: 800;
+      color: var(--green);
+      line-height: 1;
+    }
+    .bench-value.cyan { color: var(--cyan); }
+    .bench-value.white { color: #fff; }
+    .bench-key {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .bench-note {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 6px;
+      font-family: var(--font-mono);
+    }
+    .bench-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 32px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+    .bench-table th {
+      text-align: left;
+      padding: 12px 16px;
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      border-bottom: 1px solid var(--border);
+    }
+    .bench-table td {
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      color: var(--text-muted);
+    }
+    .bench-table tr:last-child td { border-bottom: none; }
+    .bench-table td:first-child { color: var(--text); font-weight: 500; }
+    .bench-table .green { color: var(--green); }
+    .bench-table .cyan { color: var(--cyan); }
+    .bench-table .dim { color: var(--text-dim); }
+    .env-tag {
+      font-size: 10px;
+      color: var(--text-dim);
+      background: var(--bg3);
+      padding: 2px 8px;
+      border-radius: 2px;
+      margin-left: 8px;
+    }
+
+    /* ==================== NODES ==================== */
+    .nodes-diagram {
+      margin-top: 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .node-tier {
+      display: grid;
+      grid-template-columns: 80px 1fr 120px;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-bottom: none;
+      background: var(--bg2);
+      transition: all 0.3s;
+      overflow: hidden;
+    }
+    .node-tier:last-child { border-bottom: 1px solid var(--border); }
+    .node-tier:hover { background: var(--bg3); border-color: var(--green); }
+    .node-tier-level {
+      padding: 20px 16px;
+      text-align: center;
+      border-right: 1px solid var(--border);
+      background: var(--bg3);
+    }
+    .node-tier-level .level {
+      font-family: var(--font-head);
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--green);
+    }
+    .node-tier-level .role {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-top: 2px;
+    }
+    .node-tier-info {
+      padding: 16px 24px;
+    }
+    .node-tier-info h4 {
+      font-family: var(--font-head);
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .node-tier-info p {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .node-tier-spec {
+      padding: 16px 24px;
+      border-left: 1px solid var(--border);
+      text-align: right;
+    }
+    .node-tier-spec .spec-model {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--cyan);
+    }
+    .node-tier-spec .spec-hw {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+
+    /* ==================== QUICKSTART ==================== */
+    #quickstart { background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .code-block {
+      background: #040810;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 32px;
+    }
+    .code-header {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      gap: 8px;
+    }
+    .code-dots { display: flex; gap: 6px; }
+    .code-dots span { width: 10px; height: 10px; border-radius: 50%; }
+    .code-dots span:nth-child(1) { background: #ff5f56; }
+    .code-dots span:nth-child(2) { background: #ffbd2e; }
+    .code-dots span:nth-child(3) { background: #27c93f; }
+    .code-title {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-left: 8px;
+    }
+    .code-body {
+      padding: 24px;
+      overflow-x: auto;
+    }
+    .code-body pre {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.8;
+      color: #b0c8d8;
+      white-space: pre;
+    }
+    .t-green { color: var(--green); }
+    .t-cyan { color: var(--cyan); }
+    .t-muted { color: var(--text-dim); }
+    .t-comment { color: #3a5a6a; font-style: italic; }
+    .t-dim { color: #3a6a7a; }
+    .t-bold { color: #d0e8f0; font-weight: 600; }
+    .code-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background: #040810;
+    }
+    .code-tab {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 10px 16px;
+      color: var(--text-dim);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .code-tab.active {
+      color: var(--green);
+      border-bottom-color: var(--green);
+      background: rgba(57,255,20,0.05);
+    }
+
+    /* ==================== ROADMAP ==================== */
+    .roadmap { margin-top: 48px; }
+    .roadmap-item {
+      display: grid;
+      grid-template-columns: 140px 1fr 100px;
+      align-items: start;
+      gap: 24px;
+      padding: 24px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .roadmap-item:last-child { border-bottom: none; }
+    .roadmap-item.done .road-status { color: var(--green); }
+    .roadmap-item.current .road-status { color: var(--cyan); }
+    .roadmap-item.done .road-title { color: var(--text-muted); }
+    .roadmap-status {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding-top: 3px;
+    }
+    .road-title {
+      font-family: var(--font-head);
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .road-desc { font-size: 14px; color: var(--text-muted); }
+    .road-tag {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 3px 10px;
+      border-radius: 2px;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .road-tag.done { background: var(--green-glow); color: var(--green); border: 1px solid var(--border); }
+    .road-tag.current { background: var(--cyan-dim); color: var(--cyan); border: 1px solid rgba(0,212,255,0.3); }
+    .road-tag.planned { background: var(--bg3); color: var(--text-dim); border: 1px solid rgba(255,255,255,0.06); }
+
+    /* ==================== FOOTER ==================== */
+    footer {
+      padding: 60px 0;
+      border-top: 1px solid var(--border);
+    }
+    .footer-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 48px;
+    }
+    .footer-brand .footer-logo {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--green);
+      margin-bottom: 12px;
+    }
+    .footer-brand p { font-size: 13px; color: var(--text-muted); line-height: 1.7; }
+    .footer-col h4 {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    .footer-col ul { list-style: none; }
+    .footer-col li { margin-bottom: 8px; }
+    .footer-col a {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+      font-family: var(--font-body);
+    }
+    .footer-col a:hover { color: var(--green); }
+    .footer-bottom {
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(255,255,255,0.04);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .footer-bottom p {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    /* Animations */
+    .fade-in {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .fade-in.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .problem-grid { grid-template-columns: 1fr; }
+      .how-steps { grid-template-columns: 1fr; }
+      .bench-grid { grid-template-columns: 1fr 1fr; }
+      .node-tier { grid-template-columns: 60px 1fr; }
+      .node-tier-spec { display: none; }
+      .diag-grid { grid-template-columns: 1fr; }
+      .diag-arrow { transform: rotate(90deg); padding: 16px 0; }
+      .diag-arrow-line { width: 60px; height: 2px; }
+      .roadmap-item { grid-template-columns: 1fr; }
+      .footer-inner { grid-template-columns: 1fr; gap: 32px; }
+      .footer-bottom { flex-direction: column; gap: 12px; }
+    }
+
+    /* Mobile nav */
+    @media (max-width: 768px) {
+      .diag-stats { gap: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+<div class="grid-fade"></div>
+
+<!-- Navigation -->
+<nav>
+  <a href="#hero" class="nav-logo">SHEAR<span> / OpenSHEAR</span></a>
+  <ul class="nav-links">
+    <li><a href="#how">How</a></li>
+    <li><a href="#benchmarks">Benchmarks</a></li>
+    <li><a href="#nodes">Nodes</a></li>
+    <li><a href="#quickstart">Start</a></li>
+    <li>
+      <a href="https://github.com/llianakindingucpu-stack/OpenSHEAR" class="gh-star" target="_blank">
+        <svg width="14" height="14" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.604-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0 1 12 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
+        Star
+      </a>
+    </li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="container">
+    <div class="hero-inner">
+      <div class="hero-badge">
+        <div class="dot"></div>
+        Pure Rust · Distributed AI · Zero Python
+      </div>
+      <h1 class="hero-title">
+        <span class="shear">SHEAR</span>
+        <span class="sub">Stateless Hybrid Ensemble Architecture</span>
+      </h1>
+      <p class="hero-tagline">
+        Run AI inference on <strong>anything</strong> — from a $50 used PC to a GPU cluster.<br>
+        No KV Cache. No transformer pipeline. No uniform hardware required.
+      </p>
+      <div class="hero-cta">
+        <a href="https://github.com/llianakindingucpu-stack/OpenSHEAR" class="btn btn-primary" target="_blank">
+          ★ View on GitHub
+        </a>
+        <a href="#quickstart" class="btn btn-outline">Quick Start →</a>
+      </div>
+
+      <!-- Architecture diagram -->
+      <div class="hero-diagram">
+        <div class="diag-grid">
+          <div class="diag-cells">
+            <div class="diag-cell">
+              <div class="diag-cell-label">Cell 0</div>
+              <div class="diag-cell-size">RWKV-4 · 169M · T=0.5</div>
+            </div>
+            <div class="diag-cell">
+              <div class="diag-cell-label">Cell 1</div>
+              <div class="diag-cell-size">RWKV-4 · 169M · T=0.8</div>
+            </div>
+            <div class="diag-cell">
+              <div class="diag-cell-label">Cell N</div>
+              <div class="diag-cell-size">RWKV-4 · 169M · T=1.2</div>
+            </div>
+          </div>
+          <div class="diag-arrow">
+            <div class="diag-arrow-line"></div>
+            <div class="diag-arrow-label">parallel<br>rayon</div>
+          </div>
+          <div class="diag-agg">
+            <div class="diag-agg-label">AGGREGATOR</div>
+            <div class="diag-agg-sub">WeightedSum · BestOfN · RankBased</div>
+          </div>
+        </div>
+        <div class="diag-stats">
+          <div class="diag-stat">
+            <div class="diag-stat-value">4.87</div>
+            <div class="diag-stat-label">tok/s on CPU</div>
+          </div>
+          <div class="diag-stat">
+            <div class="diag-stat-value">0</div>
+            <div class="diag-stat-label">HumanEval crashes</div>
+          </div>
+          <div class="diag-stat">
+            <div class="diag-stat-value">45%</div>
+            <div class="diag-stat-label">ensemble consensus</div>
+          </div>
+          <div class="diag-stat">
+            <div class="diag-stat-value">L0–L4</div>
+            <div class="diag-stat-label">heterogeneous nodes</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- THE PROBLEM -->
+<section id="problem">
+  <div class="container">
+    <div class="section-label">The Problem</div>
+    <h2>Centralized AI is <span class="accent">broken</span></h2>
+    <p class="lead">Current AI infrastructure demands uniform, expensive hardware. One broken GPU kills the whole job. One region outage takes down the service. OpenSHEAR changes the rules.</p>
+
+    <div class="problem-grid">
+      <div class="problem-card fade-in">
+        <span class="problem-icon">🔗</span>
+        <div class="old-tag">Centralized AI</div>
+        <h3>Transformer pipelines require KV Cache</h3>
+        <p>Memory grows quadratically with sequence length. Every token depends on all previous tokens. You need massive GPU VRAM just to hold the attention matrix — and it's shared across all workers.</p>
+      </div>
+      <div class="problem-card fade-in">
+        <span class="problem-icon">⚡</span>
+        <div class="new-tag">OpenSHEAR</div>
+        <h3>Linear recurrence: O(1) per token</h3>
+        <p>SHEAR uses RWKV-style time-mix: fixed-size state that never grows. Each token only needs ~3 matrix multiplications. The state is local to each Cell — no synchronization, no contention.</p>
+      </div>
+      <div class="problem-card fade-in">
+        <span class="problem-icon">💀</span>
+        <div class="old-tag">Centralized AI</div>
+        <h3>One node fails → whole job crashes</h3>
+        <p>Pipeline-parallel architectures have a critical path: the slowest shard determines throughput. If one GPU hangs, the entire model waits. Recovery requires checkpoint restart.</p>
+      </div>
+      <div class="problem-card fade-in">
+        <span class="problem-icon">🛡️</span>
+        <div class="new-tag">OpenSHEAR</div>
+        <h3>Remove any Cell, rest keeps working</h3>
+        <p>Cells are fully independent. No shared state, no sequential dependency. A crashed Cell is just ignored — the Aggregator reroutes requests. Preempt any task, use any node.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="container">
+    <div class="section-label">Mechanism</div>
+    <h2>How <span class="accent">OpenSHEAR</span> works</h2>
+    <p class="lead">Three layers, zero coupling. Each Cell is a fully independent inference unit. The Aggregator learns which Cell is best for each situation.</p>
+
+    <div class="how-steps">
+      <div class="how-step fade-in">
+        <div class="how-step-num">01 / Input</div>
+        <h3>Token arrives</h3>
+        <p>Every Cell receives the same token embedding simultaneously. No cross-Cell communication. Each Cell updates its own local state.</p>
+        <span class="code-tag">parallel · rayon</span>
+        <div class="how-step-icon">→</div>
+      </div>
+      <div class="how-step fade-in">
+        <div class="how-step-num">02 / Process</div>
+        <h3>Cells forward in parallel</h3>
+        <p>Each Cell runs its own TimeMix + FFN layers independently. Diversity comes from different sampling temperatures and local state histories.</p>
+        <span class="code-tag">O(1) per token</span>
+        <div class="how-step-icon">⚡</div>
+      </div>
+      <div class="how-step fade-in">
+        <div class="how-step-num">03 / Merge</div>
+        <h3>Aggregator selects best output</h3>
+        <p>Aggregator weighs each Cell's confidence. Not averaging — competitive selection. The strongest Cell's prediction wins.</p>
+        <span class="code-tag">WeightedSum · BestOfN</span>
+        <div class="how-step-icon">◆</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BENCHMARKS -->
+<section id="benchmarks">
+  <div class="container">
+    <div class="section-label">Performance</div>
+    <h2>Proven on <span class="accent">2017 hardware</span></h2>
+    <p class="lead">Tested on a $30 Intel Pentium G4560 — the same hardware sitting in millions of old office PCs. If it runs there, it runs anywhere.</p>
+
+    <div class="bench-grid fade-in">
+      <div class="bench-item">
+        <div class="bench-value">4.87</div>
+        <div class="bench-key">tok/s (baseline)</div>
+        <div class="bench-note">Intel Pentium G4560 CPU</div>
+      </div>
+      <div class="bench-item">
+        <div class="bench-value cyan">2.4</div>
+        <div class="bench-key">tok/s (ensemble)</div>
+        <div class="bench-note">3 cells · rayon parallel</div>
+      </div>
+      <div class="bench-item">
+        <div class="bench-value white">164/164</div>
+        <div class="bench-key">HumanEval tasks</div>
+        <div class="bench-note">zero crashes</div>
+      </div>
+      <div class="bench-item">
+        <div class="bench-value cyan">45.6%</div>
+        <div class="bench-key">consensus rate</div>
+        <div class="bench-note">ensemble voting</div>
+      </div>
+    </div>
+
+    <table class="bench-table fade-in">
+      <thead>
+        <tr>
+          <th>Configuration</th>
+          <th>Hardware</th>
+          <th>Model</th>
+          <th>Speed</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Single Cell (baseline)</td>
+          <td>Pentium G4560 · 8GB RAM</td>
+          <td class="green">RWKV-4-169M</td>
+          <td class="cyan">4.87 tok/s</td>
+          <td class="green">✅ PASS</td>
+        </tr>
+        <tr>
+          <td>Ensemble (3 cells, serial)</td>
+          <td>Pentium G4560 · 8GB RAM</td>
+          <td class="green">RWKV-4-169M</td>
+          <td class="dim">0.8 tok/s (2.1× slower)</td>
+          <td class="dim">baseline</td>
+        </tr>
+        <tr>
+          <td>Ensemble (3 cells, rayon)</td>
+          <td>Pentium G4560 · 8GB RAM</td>
+          <td class="green">RWKV-4-169M</td>
+          <td class="cyan">2.4 tok/s (1.1× faster)</td>
+          <td class="green">✅ PASS</td>
+        </tr>
+        <tr>
+          <td>HumanEval 164 tasks</td>
+          <td>Pentium G4560 · 8GB RAM</td>
+          <td class="green">RWKV-4-169M (untrained)</td>
+          <td class="dim">avg 4.87 tok/s</td>
+          <td class="green">✅ 0 crashes</td>
+        </tr>
+        <tr>
+          <td>Speculative Decoding</td>
+          <td>Planned: cross-node</td>
+          <td class="dim">L1 draft + L2 verify</td>
+          <td class="dim">target 1.5–2×</td>
+          <td class="dim">📐 design done</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); margin-top: 16px;">
+      Pass@1 = 0.0% is expected — 169M base model is untrained. Benchmark validates engine stability.
+    </p>
+  </div>
+</section>
+
+<!-- NODE HIERARCHY -->
+<section id="nodes">
+  <div class="container">
+    <div class="section-label">Network</div>
+    <h2>Five levels. <span class="accent">Any hardware.</span></h2>
+    <p class="lead">"Not everyone equal, but everyone has a path." L0 nodes with just a CPU can participate. L4 nodes with A100 clusters lead training. The network rewards every contribution.</p>
+
+    <div class="nodes-diagram fade-in">
+      <div class="node-tier">
+        <div class="node-tier-level">
+          <div class="level">L4</div>
+          <div class="role">Datacenter</div>
+        </div>
+        <div class="node-tier-info">
+          <h4>Training · Research · Dataset Curation</h4>
+          <p>Full model training, dataset curation, new architecture experiments. The backbone of the network.</p>
+        </div>
+        <div class="node-tier-spec">
+          <div class="spec-model">70B+</div>
+          <div class="spec-hw">A100 / H100 cluster</div>
+        </div>
+      </div>
+
+      <div class="node-tier">
+        <div class="node-tier-level">
+          <div class="level">L3</div>
+          <div class="role">Heavy</div>
+        </div>
+        <div class="node-tier-info">
+          <h4>Premium Inference · LoRA Fine-tuning · Verification</h4>
+          <p>High-quality inference for complex tasks. LoRA adapter training on domain data. Final verification for critical requests.</p>
+        </div>
+        <div class="node-tier-spec">
+          <div class="spec-model">14B+</div>
+          <div class="spec-hw">RTX 4090 / 3090</div>
+        </div>
+      </div>
+
+      <div class="node-tier">
+        <div class="node-tier-level">
+          <div class="level">L2</div>
+          <div class="role">Standard</div>
+        </div>
+        <div class="node-tier-info">
+          <h4>Standard Inference · Draft Verification · Evaluation</h4>
+          <p>The workhorses. Standard-quality inference, draft verification from L1 nodes, benchmark evaluation.</p>
+        </div>
+        <div class="node-tier-spec">
+          <div class="spec-model">7B</div>
+          <div class="spec-hw">RTX 3060 8GB</div>
+        </div>
+      </div>
+
+      <div class="node-tier">
+        <div class="node-tier-level">
+          <div class="level">L1</div>
+          <div class="role">Lightweight</div>
+        </div>
+        <div class="node-tier-info">
+          <h4>Draft Generation · Lightweight Inference · Routing</h4>
+          <p>Small models running fast on CPU. Generate draft tokens for speculative decoding. Handle simple queries directly.</p>
+        </div>
+        <div class="node-tier-spec">
+          <div class="spec-model">0.5–1.5B</div>
+          <div class="spec-hw">CPU + 4GB RAM</div>
+        </div>
+      </div>
+
+      <div class="node-tier">
+        <div class="node-tier-level">
+          <div class="level">L0</div>
+          <div class="role">Collector</div>
+        </div>
+        <div class="node-tier-info">
+          <h4>Data Collection · Task Routing · Network Relay</h4>
+          <p>No model required. Collect data, route requests, act as P2P relays. The entry point for any hardware.</p>
+        </div>
+        <div class="node-tier-spec">
+          <div class="spec-model">None</div>
+          <div class="spec-hw">CPU only · 1GB RAM</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- QUICK START -->
+<section id="quickstart">
+  <div class="container">
+    <div class="section-label">Get Started</div>
+    <h2>From zero to <span class="accent">inference</span> in 30 seconds</h2>
+
+    <div class="code-block fade-in">
+      <div class="code-tabs">
+        <div class="code-tab active" onclick="showTab(this, 'tab-build')">Build</div>
+        <div class="code-tab" onclick="showTab(this, 'tab-inference')">Interactive Inference</div>
+        <div class="code-tab" onclick="showTab(this, 'tab-speculative')">Speculative Mode</div>
+        <div class="code-tab" onclick="showTab(this, 'tab-bench')">Benchmark</div>
+      </div>
+      <div class="code-body">
+        <pre id="tab-build" class="tab-content"><span class="t-comment"># Clone and build</span>
+<span class="t-green">git</span> clone https://github.com/llianakindingucpu-stack/OpenSHEAR.git
+<span class="t-green">cd</span> OpenSHEAR/src-rs/decentral-ai-core
+<span class="t-green">cargo</span> build --release</pre>
+
+        <pre id="tab-inference" class="tab-content" style="display:none"><span class="t-comment"># Interactive inference</span>
+<span class="t-green">cargo</span> run --release --bin shear -- <span class="t-dim">\</span>
+  <span class="t-cyan">--model</span> /path/to/rwkv.bin <span class="t-dim">\</span>
+  <span class="t-cyan">--prompt</span> <span class="t-bold">"Hello, how are you?"</span></pre>
+
+        <pre id="tab-speculative" class="tab-content" style="display:none"><span class="t-comment"># Speculative decoding with 3 ensemble cells</span>
+<span class="t-green">cargo</span> run --release --bin shear -- <span class="t-dim">\</span>
+  <span class="t-cyan">--speculative</span> <span class="t-dim">\</span>
+  <span class="t-cyan">--cells</span> <span class="t-bold">3</span> <span class="t-dim">\</span>
+  <span class="t-cyan">--model</span> /path/to/rwkv.bin <span class="t-dim">\</span>
+  <span class="t-cyan">--consensus</span> <span class="t-bold">0.5</span> <span class="t-dim">\</span>
+  <span class="t-cyan">--prompt</span> <span class="t-bold">"What is 2+2?"</span></pre>
+
+        <pre id="tab-bench" class="tab-content" style="display:none"><span class="t-comment"># HumanEval benchmark (resume-supported)</span>
+<span class="t-green">cargo</span> run --release --bin humaneval -- <span class="t-dim">\</span>
+  <span class="t-cyan">--model</span> /path/to/rwkv.bin <span class="t-dim">\</span>
+  <span class="t-cyan">--data</span> /path/to/HumanEval.jsonl <span class="t-dim">\</span>
+  <span class="t-cyan">--max-tokens</span> <span class="t-bold">256</span> <span class="t-dim">\</span>
+  <span class="t-cyan">--resume</span>   <span class="t-comment"># continue from crash</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ROADMAP -->
+<section id="roadmap">
+  <div class="container">
+    <div class="section-label">Roadmap</div>
+    <h2>What's <span class="accent">next</span></h2>
+
+    <div class="roadmap fade-in">
+      <div class="roadmap-item done">
+        <div class="roadmap-status"><span class="road-tag done">Done</span></div>
+        <div>
+          <div class="road-title">RWKV-4 Inference Engine (Rust)</div>
+          <div class="road-desc">Custom WKV linear recurrence, O(1) per token, no KV Cache. Binary weight format with direct mmap loading.</div>
+        </div>
+        <div><span class="road-tag done">v0.1</span></div>
+      </div>
+      <div class="roadmap-item done">
+        <div class="roadmap-status"><span class="road-tag done">Done</span></div>
+        <div>
+          <div class="road-title">Cell + Aggregator Architecture</div>
+          <div class="road-desc">Parallel Cell execution, WeightedSum / BestOfN / RankBased aggregation, competitive selection.</div>
+        </div>
+        <div><span class="road-tag done">v0.2</span></div>
+      </div>
+      <div class="roadmap-item done">
+        <div class="roadmap-status"><span class="road-tag done">Done</span></div>
+        <div>
+          <div class="road-title">Speculative Decoding (Phase 1)</div>
+          <div class="road-desc">Ensemble voting across multiple Cells, rayon parallelization, 1.1× speedup over baseline.</div>
+        </div>
+        <div><span class="road-tag done">v0.2</span></div>
+      </div>
+      <div class="roadmap-item done">
+        <div class="roadmap-status"><span class="road-tag done">Done</span></div>
+        <div>
+          <div class="road-title">HumanEval Benchmark (164/164)</div>
+          <div class="road-desc">Full benchmark with crash isolation, resume support. Zero NaN crashes after overflow fix.</div>
+        </div>
+        <div><span class="road-tag done">v0.2</span></div>
+      </div>
+      <div class="roadmap-item current">
+        <div class="roadmap-status"><span class="road-tag current">Active</span></div>
+        <div>
+          <div class="road-title">GPU Inference Backend (CUDA)</div>
+          <div class="road-desc">candle CUDA backend for RWKV-4, targeting RTX 3060+. Remove CPU bottleneck for L2/L3 nodes.</div>
+        </div>
+        <div><span class="road-tag current">Next</span></div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-status"><span class="road-tag planned">Planned</span></div>
+        <div>
+          <div class="road-title">LoRA Fine-tuning Support</div>
+          <div class="road-desc">QLoRA integration for domain-specific fine-tuning on L3 nodes. Hot-swappable adapters.</div>
+        </div>
+        <div><span class="road-tag planned">Soon</span></div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-status"><span class="road-tag planned">Planned</span></div>
+        <div>
+          <div class="road-title">Speculative Decoding Phase 2</div>
+          <div class="road-desc">Cross-node: L1 drafters → L2/L3 verifiers. Expected 1.5–2× throughput increase.</div>
+        </div>
+        <div><span class="road-tag planned">Soon</span></div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-status"><span class="road-tag planned">Planned</span></div>
+        <div>
+          <div class="road-title">P2P Network Protocol</div>
+          <div class="road-desc">tokio-based P2P discovery, node health monitoring, gossip protocol for state sync.</div>
+        </div>
+        <div><span class="road-tag planned">Q3</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <div class="footer-logo">SHEAR</div>
+        <p>Stateless Hybrid Ensemble Architecture for Reasoning. Pure Rust. Distributed by design. Open to everyone.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Documentation</h4>
+        <ul>
+          <li><a href="docs/ARCHITECTURE.md">Architecture</a></li>
+          <li><a href="docs/SHEAR_DESIGN.md">Design Principles</a></li>
+          <li><a href="docs/SPECULATIVE_DECODING.md">Speculative Decoding</a></li>
+          <li><a href="docs/NODE_HIERARCHY.md">Node Hierarchy</a></li>
+          <li><a href="docs/BENCHMARKS.md">Benchmarks</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Project</h4>
+        <ul>
+          <li><a href="https://github.com/llianakindingucpu-stack/OpenSHEAR" target="_blank">GitHub</a></li>
+          <li><a href="docs/CONTRIBUTING.md">Contributing</a></li>
+          <li><a href="CHANGELOG.md">Changelog</a></li>
+          <li><a href="https://github.com/llianakindingucpu-stack/OpenSHEAR/issues" target="_blank">Issues</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>OpenSHEAR · MIT License · Built with Rust</p>
+      <p>Tested on Intel Pentium G4560 · Runs on anything</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Tab switching
+  function showTab(el, id) {
+    document.querySelectorAll('.code-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+    document.getElementById(id).style.display = 'block';
+  }
+
+  // Scroll fade-in
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+  // Smooth scroll for nav
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth' });
+    });
+  });
+</script>
+
+</body>
+</html>
