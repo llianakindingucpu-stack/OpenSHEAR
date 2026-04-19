@@ -5,8 +5,52 @@
 **SHEAR** — Parallel Inference Engine
 **Full Name**: Stateless Hybrid Ensemble Architecture for Reasoning
 
-## 2. Core Commitments
+## 2. Mission & Vision
 
+### The Problem AI Infrastructure Has Today
+
+AI inference is becoming critical infrastructure — like electricity or water supply. Yet the current model creates a single point of trust failure:
+
+| Risk | What Happens |
+|------|-------------|
+| **Prompt interception** | Token relay/proxy services read, log, and resell your prompts |
+| **Model downgrade** | APIs labeled "GPT-4" may actually run cheaper models silently |
+| **Prompt injection** | Middlemen can inject hidden system prompts to steal business logic |
+| **Data exfiltration** | Sensitive enterprise data (finance, healthcare, government) flows through third parties |
+| **Compliance violation** | Data localization laws (China's DSL, EU GDPR) make cloud API usage illegal for many orgs |
+
+### SHEAR's Answer: Privacy by Architecture
+
+SHEAR doesn't add encryption or policies on top of existing infrastructure — **privacy is built into the inference mechanism itself**.
+
+When a prompt enters the SHEAR network:
+
+```
+User Prompt
+    ↓
+[Router] — splits into task shards
+    ↓           ↓           ↓
+  Cell 0    Cell 1    Cell 2    ← each sees only a fragment
+    ↓           ↓           ↓
+[Aggregator] — combines inference results, NOT original prompts
+    ↓
+Response to User
+```
+
+**No single node ever sees the complete prompt.** This is analogous to Tor's onion routing — no relay knows both source and destination. In SHEAR, no node can reconstruct the full user input from its shard alone.
+
+Key properties:
+- **No trusted third party required** — the architecture itself prevents full prompt exposure
+- **No additional encryption overhead** — nodes do see their assigned shard, but cannot reconstruct the whole
+- **Privacy scales with nodes** — more cells in the ensemble = smaller fragments = harder to reconstruct
+- **Verifiable results** — consensus voting + reputation system ensures output quality without trusting any single node
+
+### Core Commitments
+
+- Privacy-by-architecture: prompt sharding is fundamental, not an add-on
+- Fully open source: every line of inference code is auditable
+- No middleman: peer-to-peer, node-to-node, no API gateway that can intercept
+- Run anywhere: from a $50 PC to a GPU cluster
 - Fully abandon serial Transformer / RNN pipelines
 - Native support for preemption, multi-cheap-CPU, distributed parallelism
 - Minimal communication — runs on 100Mbps networks
@@ -202,3 +246,45 @@ See [Benchmark Document](BENCHMARKS.md) for full details.
 | Tokenizer | Custom BPE | No Python dependencies |
 | Database | SQLite (rusqlite) | Embedded, zero-config |
 | Weight format | Custom binary | Direct mmap, no runtime overhead |
+
+## 13. Privacy & Trust Model
+
+### Threat Model
+
+SHEAR is designed to operate in an adversarial environment where:
+
+1. **Node operators may be malicious** — they can read, log, or modify data they receive
+2. **Network paths may be monitored** — traffic analysis is assumed possible
+3. **No central authority exists** — there is no "SHEAR Inc." to file complaints with
+
+### Privacy Guarantees by Architecture
+
+| Property | How SHEAR Achieves It |
+|----------|----------------------|
+| **No single node sees full prompt** | Router splits prompts into task shards before distribution |
+| **No central point of failure** | P2P network, no relay/proxy/gateway |
+| **Result verifiable without trusting source** | Consensus voting across independent cells |
+| **Node misbehavior has cost** | Reputation system penalizes quality deviations |
+| **Data stays in your jurisdiction** | You choose which nodes process your requests |
+| **Full auditability** | 100% open source, no proprietary components |
+
+### Comparison with Existing Approaches
+
+| Approach | Privacy Model | Trust Required | Single Point of Failure |
+|----------|--------------|----------------|------------------------|
+| Cloud API (OpenAI, etc.) | None — provider sees everything | Trust the provider | Yes (the provider) |
+| API Relay / Token Stations | None — middleman sees + can modify | Trust middleman + provider | Yes (the middleman) |
+| VPN + Cloud API | Hides traffic, provider still sees prompt | Trust the provider | Yes (the provider) |
+| Local Deployment | Full — data never leaves machine | Trust yourself | No |
+| **SHEAR** | **Architectural** — no node sees full prompt | **Trust no single entity** | **No** |
+
+### The "Naked Prompt" Problem
+
+When using centralized AI APIs, your prompt is transmitted in full to a single entity. This is the equivalent of sending an unencrypted email — the content is fully exposed to every hop in the chain. For:
+
+- **Enterprises**: Proprietary business logic, customer data, trade secrets
+- **Developers**: Application prompts, API keys embedded in context, system instructions
+- **Individuals**: Personal data, health information, private conversations
+- **Government**: Classified information, citizen data, policy drafts
+
+SHEAR's prompt sharding means that even if every node in the network logs its input, **no single log entry contains enough information to reconstruct the original prompt**.
