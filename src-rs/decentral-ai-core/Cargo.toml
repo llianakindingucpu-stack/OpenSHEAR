@@ -19,6 +19,8 @@ ndarray = { version = "0.16", default-features = false, features = ["std"] }
 rand = "0.8"
 byteorder = "1"
 rayon = "1.10"
+libp2p = { version = "0.56.0", features = ["tcp", "noise", "yamux", "kad", "mdns", "gossipsub", "tokio"] }
+futures = "0.3"
 
 [[bin]]
 name = "decentral-ai-core"
