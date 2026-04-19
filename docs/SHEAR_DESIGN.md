@@ -1,34 +1,34 @@
 # Project SHEAR — Stateless Hybrid Ensemble Architecture for Reasoning
 
-## 一、项目代号
+## 1. Project Codename
 
-**SHEAR** — 并行推理引擎
-**全称**: Stateless Hybrid Ensemble Architecture for Reasoning
+**SHEAR** — Parallel Inference Engine
+**Full Name**: Stateless Hybrid Ensemble Architecture for Reasoning
 
-## 二、核心承诺
+## 2. Core Commitments
 
-- 完全抛弃串行 Transformer / RNN 流水线
-- 天生支持抢占式、多廉价 CPU、分布式并行
-- 通信量极小，百兆网即可跑
-- 目标：≥20 token/s，能力对标 RWKV-14B
-- 全部用 Rust 实现
-- 个人 / 小团队可训练、可部署
+- Fully abandon serial Transformer / RNN pipelines
+- Native support for preemption, multi-cheap-CPU, distributed parallelism
+- Minimal communication — runs on 100Mbps networks
+- Target: ≥20 token/s, capability equivalent to RWKV-14B
+- 100% Rust implementation
+- Trainable and deployable by individuals / small teams
 
-## 三、核心设计原则（铁律，绝不违反）
+## 3. Core Design Principles (Non-Negotiable)
 
-1. **无层级依赖**：Cell 之间无串行依赖
-2. **无全局状态**：不依赖 KV Cache 同步，Cell 状态是局部的
-3. **全可分片**：任意切分子任务，拔掉任意 Cell 照常运行
-4. **抢占安全**：任务可重复下发，谁快用谁
-5. **极小通信**：单次 Cell 结果 ≤ 512B
+1. **No tier dependencies**: No serial dependencies between Cells
+2. **No global state**: No KV Cache synchronization; Cell state is local
+3. **Fully sharded**: Any Cell can be removed and the rest keeps running
+4. **Preemption safe**: Tasks can be re-dispatched; fastest responder wins
+5. **Minimal communication**: Single Cell result ≤ 512 bytes
 
-## 四、模型结构
+## 4. Model Architecture
 
 ```
-[输入 Token Embedding]
-      ↓ 广播
+[Input Token Embedding]
+      ↓ broadcast
 ┌───────┬───────┬───────┬───────┐
-Cell 0  Cell 1  Cell 2  ... Cell N  ← 全部并行、无依赖、无通信
+Cell 0  Cell 1  Cell 2  ... Cell N  ← fully parallel, no dependencies, no communication
 │local  │local  │local  │       local│
 │state  │state  │state  │       state│
 └───┬───┴───┬───┴───┬───┴───────┬───┘
@@ -36,17 +36,17 @@ Cell 0  Cell 1  Cell 2  ... Cell N  ← 全部并行、无依赖、无通信
     └───────┴───────┼───────────┘
                     ▼
            [Aggregator]
-    学习到的路由权重（非固定均值）
+    Learned routing weights (not fixed averaging)
                     ▼
            [Output Head]
         → next token probability
 ```
 
-## 五、Cell 实现
+## 5. Cell Implementation
 
-### 当前实现（v0.2.0）
+### Current Implementation (v0.2.0)
 
-每个 Cell 基于 RWKV-4 架构，独立运行一个小型语言模型：
+Each Cell runs an independent RWKV-4-based language model:
 
 ```rust
 pub struct CellConfig {
@@ -61,7 +61,7 @@ pub struct CellConfig {
 // Total: ~200M params per Cell
 ```
 
-### Cell 内部前向传播
+### Cell Forward Pass
 
 ```
 Input Token
@@ -70,18 +70,18 @@ Input Token
     │   ↓ LayerNorm (ln1)
     │   ↓ TimeMix (RWKV-style linear recurrence)
     │   │   wkv = (decay * state + key * value) / (decay + key)
-    │   │   state_new = decay * state + key * value  ← O(1), 固定大小
+    │   │   state_new = decay * state + key * value  ← O(1), fixed size
     │   ↓ Output projection [d_model, d_model]
     │   ↓ Residual connection
     │   ↓ LayerNorm (ln2)
-    │   ↓ FFN (SwiGLU: gate * silu(up))
+    │   ↓ FFN (sigmoid(receptance) * value)
     │   ↓ Residual connection
     ↓ LayerNorm (ln_out)
     ↓ Output Head [d_model, vocab_size]
     → logits
 ```
 
-### 局部状态（CellState）
+### Local State (CellState)
 
 ```rust
 pub struct TimeMixState {
@@ -91,114 +91,114 @@ pub struct TimeMixState {
 }
 ```
 
-- 固定大小，不随序列长度增长
-- 不需要跨 Cell 同步
-- 不需要 KV Cache
+- Fixed size — does not grow with sequence length
+- No cross-Cell synchronization needed
+- No KV Cache needed
 
-## 六、Aggregator 实现
+## 6. Aggregator Implementation
 
-### 当前策略
+### Current Strategies
 
-| 策略 | 实现 | 适用场景 |
-|------|------|---------|
-| **WeightedSum** | `Σ(w_i · logits_i)` | 默认，适合多样化 Cell |
-| **BestOfN** | 选 confidence 最高的 Cell | Cell 有明确专精时 |
-| **RankBased** | 按 confidence 排名加权 | 折中方案 |
-| **Adaptive** | 动态选择策略 | 最高质量，略多计算 |
+| Strategy | Implementation | Best For |
+|----------|---------------|----------|
+| **WeightedSum** | `Σ(w_i · logits_i)` | Default — diverse Cells |
+| **BestOfN** | Select highest-confidence Cell | Specialized Cells |
+| **RankBased** | Weight by confidence rank | Balanced approach |
+| **Adaptive** | Dynamically select strategy | Best quality, slightly more compute |
 
-### Confidence 计算
+### Confidence Computation
 
 ```
 confidence_i = max(softmax(logits_i))
 ```
 
-confidence 高 = Cell 对自己的输出很确定 → Aggregator 给更高权重。
+Higher confidence = Cell is more certain of its output → Aggregator gives it more weight.
 
-## 七、Speculative Decoding（推测解码）
+## 7. Speculative Decoding
 
-SHEAR 的 Cell 架构天然支持推测解码：
+SHEAR's Cell architecture natively supports speculative decoding:
 
-### Phase 1（已实现 ✅）
+### Phase 1 (Implemented ✅)
 
-- N 个 Cell 共享模型权重（Arc<RwkvModel>，只读）
-- 每个 Cell 独立状态 + 不同采样温度
-- 逐 token 投票，rayon 并行
-- 结果：1.1x 加速（并行消除了开销）
+- N Cells share model weights (`Arc<RwkvModel>`, read-only)
+- Each Cell has independent state + different sampling temperature
+- Token-by-token voting, rayon parallel
+- Result: 1.1× speedup (parallelization eliminates overhead)
 
-### Phase 2（设计完成 📐）
+### Phase 2 (Design Complete 📐)
 
-- L0/L1 节点做 draft（小模型，快）
-- L2/L3 节点做 verify（大模型，准）
+- L0/L1 nodes act as draft (small model, fast)
+- L2/L3 nodes act as verifiers (large model, accurate)
 - Draft k tokens → Verify batch → Accept/Reject + rollback
-- 预期加速：1.5-2x
+- Expected speedup: 1.5–2×
 
-详见 [Speculative Decoding 设计文档](SPECULATIVE_DECODING.md)
+See [Speculative Decoding Design Document](SPECULATIVE_DECODING.md) for full details.
 
-## 八、五级节点体系
+## 8. Five-Tier Node System
 
-| 级别 | 角色 | 硬件 | 模型 | 职能 |
-|------|------|------|------|------|
-| L0 | 采集者 | CPU only | 无 | 数据采集、路由转发 |
-| L1 | 轻量推理 | CPU+4GB | 0.5B-1.5B | Draft 生成、轻量推理 |
-| L2 | 标准推理 | 3060 | 7B | 标准推理、验证 |
-| L3 | 重度推理 | 3090/4090 | 14B+ | 重度推理、LoRA 微调 |
-| L4 | 数据中心 | A100/H100 | 70B+ | 全量训练、数据策展 |
+| Tier | Role | Hardware | Model | Function |
+|------|------|----------|-------|----------|
+| L0 | Collector | CPU only | None | Data collection, request routing |
+| L1 | Lightweight | CPU + 4GB | 0.5B–1.5B | Draft generation, light inference |
+| L2 | Standard | 3060 | 7B | Standard inference, verification |
+| L3 | Heavy | 3090/4090 | 14B+ | Heavy inference, LoRA fine-tuning |
+| L4 | Datacenter | A100/H100 | 70B+ | Full training, dataset curation |
 
-详见 [节点体系文档](NODE_HIERARCHY.md)
+See [Node Hierarchy Document](NODE_HIERARCHY.md) for full details.
 
-## 九、为什么 SHEAR 能强？
+## 9. Why SHEAR Is Strong
 
-### 集成学习理论
+### Ensemble Learning Theory
 
-Mixture of Experts (MoE) 已在大规模验证：
-- DeepSeek V3: 256 Experts, 671B → GPT-4 级别
-- Mixtral 8x7B: 超越 LLaMA-2 70B
+Mixture of Experts (MoE) is proven at scale:
+- DeepSeek V3: 256 Experts, 671B → GPT-4 class
+- Mixtral 8×7B: outperforms LLaMA-2 70B
 
-SHEAR = **分布式 MoE**，Expert 分布在不同机器上。
+SHEAR = **Distributed MoE**, with Experts spread across different machines.
 
-### 竞争选拔 vs 投票均值
+### Competitive Selection vs. Averaging
 
 ```
-传统集成：output = mean(A, B, C, ..., N)  → 趋于平庸
-SHEAR：  output = best(A, B, C, ..., N)   → 保留专长
+Traditional ensemble:  output = mean(A, B, C, ..., N)  → tends toward mediocrity
+SHEAR:                output = best(A, B, C, ..., N)   → preserves expertise
 ```
 
-### 大脑皮层柱类比
+### Brain Cortex Column Analogy
 
-大脑皮层 ~100 亿个柱状结构，每个柱独立处理信息，少量横向连接协调。大量弱单元并行 = 强智能。
+The human cortex has ~100 billion columnar structures, each processing information independently with sparse lateral connections. Many weak units running in parallel = strong intelligence.
 
-## 十、参数规模与性能目标
+## 10. Parameter Scale & Performance Targets
 
-| 配置 | Cell 数 | 总参数 | 单机需求 | 预期能力 |
-|------|---------|--------|---------|---------|
-| 最小 | 8 | 1.6B | 2GB × 8 | GPT-2 级别 |
-| 标准 | 32 | 6.4B | 2GB × 32 | GPT-3 级别 |
-| 大型 | 64 | 12.8B | 2GB × 64 | GPT-3.5 级别 |
-| 全网 | 128+ | 25.6B+ | 分布式 | RWKV-14B 级别 |
+| Config | # Cells | Total Params | Per-Cell RAM | Expected Capability |
+|--------|---------|-------------|-------------|---------------------|
+| Minimal | 8 | 1.6B | 2GB × 8 | GPT-2 class |
+| Standard | 32 | 6.4B | 2GB × 32 | GPT-3 class |
+| Large | 64 | 12.8B | 2GB × 64 | GPT-3.5 class |
+| Full Network | 128+ | 25.6B+ | Distributed | RWKV-14B class |
 
-**单机只需跑 1 个 Cell（200M, 2GB RAM）**
+**Any single machine only needs to run 1 Cell (200M, 2GB RAM)**
 
-## 十一、当前基准测试
+## 11. Current Benchmark Results
 
-| 指标 | Baseline (1 Cell) | Ensemble (3 Cells, rayon) |
-|------|-------------------|---------------------------|
-| 速度 (CPU, 169M) | ~4.87 tok/s | ~2.4 tok/s (1.1x) |
-| 共识率 | N/A | 45.6% |
-| HumanEval Pass@1 | 0.0% (未训练) | TBD |
-| 崩溃数 | 0/164 | 0 |
+| Metric | Baseline (1 Cell) | Ensemble (3 Cells, rayon) |
+|--------|-------------------|--------------------------|
+| Speed (CPU, 169M) | ~4.87 tok/s | ~2.4 tok/s (1.1× faster) |
+| Consensus rate | N/A | 45.6% |
+| HumanEval Pass@1 | 0.0% (untrained) | TBD |
+| Crashes | 0/164 | 0 |
 
-测试环境：Intel Pentium G4560, 8GB RAM, 无 GPU
+Test environment: Intel Pentium G4560, 8GB RAM, no GPU
 
-详见 [基准测试文档](BENCHMARKS.md)
+See [Benchmark Document](BENCHMARKS.md) for full details.
 
-## 十二、技术栈
+## 12. Technology Stack
 
-| 组件 | 技术 | 原因 |
-|------|------|------|
-| 推理引擎 | Rust (custom RWKV-4) | 性能、内存安全、无 GC |
-| 并行 | rayon | 零开销数据并行 |
-| HTTP API | axum | 异步、类型安全 |
-| P2P | tokio | 全双工、低延迟 |
-| Tokenizer | Custom BPE | 无 Python 依赖 |
-| 数据库 | SQLite (rusqlite) | 嵌入式、零配置 |
-| 权重格式 | 自定义 binary | 直接 mmap，无运行时开销 |
+| Component | Technology | Rationale |
+|-----------|-----------|-----------|
+| Inference engine | Rust (custom RWKV-4) | Performance, memory safety, no GC |
+| Parallelism | rayon | Zero-overhead data parallelism |
+| HTTP API | axum | Async, type-safe |
+| P2P | tokio | Full-duplex, low latency |
+| Tokenizer | Custom BPE | No Python dependencies |
+| Database | SQLite (rusqlite) | Embedded, zero-config |
+| Weight format | Custom binary | Direct mmap, no runtime overhead |
