@@ -1,50 +1,59 @@
-# Rust
+# === Build ===
 target/
+*.exe
 *.pdb
 
-# Python
+# === Python ===
 __pycache__/
 *.pyc
 *.pyo
 *.egg-info/
-
-# Data & model weights (too large for repo)
-data/
-*.pth
-*.safetensors
-*.gguf
-*.bin
-*.parquet
-
-# Logs & databases
-*.log
-*.db
-*.sqlite3
-
-# Environment
+venv/
+.venv/
 .env
-.env.*
 
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
+# === Rust ===
+Cargo.lock
+**/*.rs.bk
 
-# Legacy docs (replaced by ARCHITECTURE, BENCHMARKS, SPECULATIVE_DECODING, NODE_HIERARCHY, CONTRIBUTING)
-docs/ARCHITECTURE_RESEARCH.md
-docs/COMPETITIVE_ANALYSIS.md
-docs/COST_ANALYSIS.md
-docs/DEPLOYMENT.md
-docs/DESIGN.md
-docs/FEASIBILITY.md
-docs/NODE_ONBOARDING.md
-docs/PROJECT_INDEX.md
-docs/RUST_PROGRESS.md
-docs/SPRINT_STATUS_20260417.md
-docs/TRAINING_STATUS.md
-docs/WORK_LOG.md
+# === Data & weights ===
+lora_out/
+results/
+memory/
+data/
+*.bin
+*.safetensors
+*.pth
+*.pt
 
-# OS
-Thumbs.db
+# === Logs ===
+*.log
+logs/
+
+# === Temp scripts ===
+scripts/_*.py
+scripts/test_*.py
+scripts/debug_*.py
+scripts/quick_test_*.py
+scripts/check_*.py
+
+# === Env & config ===
+.env
+.env.local
+config.yaml
+*.local.yaml
+
+# === OS ===
 .DS_Store
+Thumbs.db
+
+# === IDE ===
+.vscode/
+.idea/
+
+# === Misc ===
+api_server.py
+run.py
+run_node.py
+commit.bat
+push_lora_scripts.bat

@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DecentralAI Dashboard</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0a0e17; --card: #111827; --border: #1e293b;
+  --accent: #6366f1; --green: #22c55e; --red: #ef4444;
+  --yellow: #eab308; --text: #e2e8f0; --muted: #64748b;
+}
+body { font-family: 'SF Mono', 'Fira Code', monospace; background: var(--bg); color: var(--text); min-height: 100vh; }
+.grid { display: grid; gap: 16px; padding: 20px; max-width: 1400px; margin: 0 auto; }
+.header { grid-column: 1/-1; display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--border); }
+.header h1 { font-size: 22px; font-weight: 700; }
+.header h1 span { color: var(--accent); }
+.header .status { display: flex; gap: 12px; align-items: center; font-size: 13px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dot.on { background: var(--green); box-shadow: 0 0 8px var(--green); }
+.dot.off { background: var(--red); }
+
+.stats { grid-column: 1/-1; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.stat { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.stat .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+.stat .value { font-size: 28px; font-weight: 700; }
+.stat .value.green { color: var(--green); }
+.stat .value.accent { color: var(--accent); }
+.stat .value.yellow { color: var(--yellow); }
+.stat .sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+.main { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+@media (max-width: 900px) { .main { grid-template-columns: 1fr; } }
+
+.panel { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.panel h2 { font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; color: var(--muted); font-size: 11px; text-transform: uppercase; padding: 8px; border-bottom: 1px solid var(--border); }
+td { padding: 8px; border-bottom: 1px solid var(--border); }
+tr:hover { background: rgba(99,102,241,0.05); }
+
+.badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+.badge.l0 { background: #1e293b; color: #94a3b8; }
+.badge.l1 { background: #172554; color: #60a5fa; }
+.badge.l2 { background: #1e1b4b; color: #818cf8; }
+.badge.l3 { background: #2e1065; color: #a78bfa; }
+.badge.l4 { background: #3b0764; color: #c084fc; }
+
+.bar-container { width: 100%; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.bar { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+.bar.green { background: var(--green); }
+.bar.accent { background: var(--accent); }
+.bar.yellow { background: var(--yellow); }
+.bar.red { background: var(--red); }
+
+.log { max-height: 300px; overflow-y: auto; font-size: 12px; line-height: 1.6; }
+.log .entry { padding: 4px 0; border-bottom: 1px solid rgba(30,41,59,0.5); }
+.log .time { color: var(--muted); margin-right: 8px; }
+.log .tag { padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 600; margin-right: 6px; }
+.log .tag.info { background: #172554; color: #60a5fa; }
+.log .tag.ok { background: #14532d; color: #4ade80; }
+.log .tag.warn { background: #422006; color: #fbbf24; }
+.log .tag.err { background: #450a0a; color: #f87171; }
+
+.expert-card { background: rgba(99,102,241,0.05); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 8px; }
+.expert-card .name { font-weight: 600; font-size: 14px; }
+.expert-card .meta { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+.footer { grid-column: 1/-1; text-align: center; padding: 20px 0; color: var(--muted); font-size: 12px; }
+
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+.pulse { animation: pulse 2s infinite; }
+</style>
+</head>
+<body>
+<div class="grid">
+  <!-- Header -->
+  <div class="header">
+    <h1>⚡ <span>DecentralAI</span> Dashboard</h1>
+    <div class="status">
+      <span class="dot on pulse"></span> Node Online
+      <span style="color:var(--muted)">|</span>
+      <span id="node-id">node_alpha</span>
+      <span style="color:var(--muted)">|</span>
+      <span id="uptime">00:00:00</span>
+    </div>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="stats">
+    <div class="stat">
+      <div class="label">Connected Peers</div>
+      <div class="value accent" id="peer-count">0</div>
+      <div class="sub">Max: 50</div>
+    </div>
+    <div class="stat">
+      <div class="label">Inferences Today</div>
+      <div class="value green" id="inference-count">0</div>
+      <div class="sub">Success: 0 | Failed: 0</div>
+    </div>
+    <div class="stat">
+      <div class="label">Credits Earned</div>
+      <div class="value yellow" id="credits-earned">0</div>
+      <div class="sub">Staked: 0 DCRED</div>
+    </div>
+    <div class="stat">
+      <div class="label">Reputation Score</div>
+      <div class="value green" id="reputation">50.00</div>
+      <div class="sub">Level: L1 Light</div>
+    </div>
+    <div class="stat">
+      <div class="label">Network TPS</div>
+      <div class="value accent" id="tps">0</div>
+      <div class="sub">Avg latency: --ms</div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main">
+    <!-- Left: Network + Evolution -->
+    <div>
+      <!-- Peer Table -->
+      <div class="panel" style="margin-bottom:16px">
+        <h2>🌐 Network Peers</h2>
+        <table>
+          <thead><tr><th>Node</th><th>Level</th><th>Expert</th><th>Latency</th><th>Rep</th></tr></thead>
+          <tbody id="peer-table">
+            <tr><td colspan="5" style="color:var(--muted);text-align:center;padding:24px">No peers connected</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Evolution Status -->
+      <div class="panel">
+        <h2>🧬 Evolution Engine</h2>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+          <div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Observation Buffer</div>
+            <div class="bar-container"><div class="bar accent" id="obs-bar" style="width:0%"></div></div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px"><span id="obs-count">0</span>/20</div>
+          </div>
+          <div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Success Rate</div>
+            <div class="bar-container"><div class="bar green" id="success-bar" style="width:0%"></div></div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px"><span id="success-rate">0</span>%</div>
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--muted)">
+          Last evolution: <span id="last-evolve">Never</span> |
+          Next check: <span id="next-check">--</span> |
+          LoRA status: <span id="lora-status" style="color:var(--yellow)">Idle</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Experts + Log -->
+    <div>
+      <!-- Expert Models -->
+      <div class="panel" style="margin-bottom:16px">
+        <h2>🤖 Expert Models</h2>
+        <div id="expert-list">
+          <div class="expert-card">
+            <div class="name">rwkv-4-169m-pile</div>
+            <div class="meta">RWKV · General · 646MB · 5.8 tok/s</div>
+            <div class="meta" style="margin-top:4px">Requests: 0 | Success: 0%</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activity Log -->
+      <div class="panel">
+        <h2>📋 Activity Log</h2>
+        <div class="log" id="activity-log"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    DecentralAI v0.2.0 — dMoE + Self-Evolution — Built with ⚡
+  </div>
+</div>
+
+<script>
+// === Configuration ===
+const API_BASE = window.location.origin;
+const REFRESH_MS = 3000;
+
+// === State ===
+let state = {
+  node_id: 'node_alpha',
+  level: 'L1',
+  uptime: 0,
+  peers: [],
+  inferences: { total: 0, success: 0, failed: 0 },
+  credits: { earned: 0, staked: 0 },
+  reputation: 50.0,
+  tps: 0,
+  latency: 0,
+  evolution: { observations: 0, successRate: 0, lastEvolve: null, nextCheck: null, loraStatus: 'Idle' },
+  experts: [],
+  logs: [],
+};
+
+// === API Calls ===
+async function fetchStatus() {
+  try {
+    const r = await fetch(`${API_BASE}/status`);
+    if (r.ok) return await r.json();
+  } catch {}
+  return null;
+}
+
+async function fetchHealth() {
+  try {
+    const r = await fetch(`${API_BASE}/health`);
+    if (r.ok) return await r.json();
+  } catch {}
+  return null;
+}
+
+// === UI Updates ===
+function updateUI() {
+  document.getElementById('node-id').textContent = state.node_id;
+  document.getElementById('peer-count').textContent = state.peers.length;
+  document.getElementById('inference-count').textContent = state.inferences.total;
+  document.getElementById('credits-earned').textContent = state.credits.earned.toFixed(1);
+  document.getElementById('reputation').textContent = state.reputation.toFixed(2);
+  document.getElementById('tps').textContent = state.tps;
+
+  // Uptime
+  const h = Math.floor(state.uptime / 3600);
+  const m = Math.floor((state.uptime % 3600) / 60);
+  const s = Math.floor(state.uptime % 60);
+  document.getElementById('uptime').textContent = 
+    `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+
+  // Evolution
+  const obsPct = Math.min(100, (state.evolution.observations / 20) * 100);
+  document.getElementById('obs-bar').style.width = obsPct + '%';
+  document.getElementById('obs-count').textContent = state.evolution.observations;
+  document.getElementById('success-rate').textContent = state.evolution.successRate.toFixed(0);
+  document.getElementById('success-bar').style.width = state.evolution.successRate + '%';
+  
+  const sBar = document.getElementById('success-bar');
+  sBar.className = 'bar ' + (state.evolution.successRate > 50 ? 'green' : state.evolution.successRate > 20 ? 'yellow' : 'red');
+
+  // Peer table
+  const tbody = document.getElementById('peer-table');
+  if (state.peers.length > 0) {
+    tbody.innerHTML = state.peers.map(p => `
+      <tr>
+        <td>${p.id.slice(0,12)}</td>
+        <td><span class="badge ${p.level.toLowerCase()}">${p.level}</span></td>
+        <td>${p.expert || '-'}</td>
+        <td>${p.latency}ms</td>
+        <td>${p.reputation}</td>
+      </tr>
+    `).join('');
+  }
+
+  // Activity log
+  const logDiv = document.getElementById('activity-log');
+  logDiv.innerHTML = state.logs.slice(-20).reverse().map(l => `
+    <div class="entry">
+      <span class="time">${l.time}</span>
+      <span class="tag ${l.type}">${l.type.toUpperCase()}</span>
+      ${l.text}
+    </div>
+  `).join('');
+}
+
+// === Simulation (until real API is connected) ===
+function simulate() {
+  state.uptime += 3;
+  
+  // Simulate occasional events
+  if (Math.random() < 0.1) {
+    state.inferences.total++;
+    if (Math.random() < 0.7) {
+      state.inferences.success++;
+      state.credits.earned += 5 * (0.5 + Math.random());
+      state.evolution.observations++;
+      addLog('ok', `Inference completed (+${(5 * (0.5 + Math.random())).toFixed(1)} credits)`);
+    } else {
+      state.inferences.failed++;
+      addLog('err', 'Inference failed: syntax error');
+    }
+  }
+
+  if (Math.random() < 0.05 && state.peers.length < 8) {
+    const levels = ['L0','L1','L2','L3','L4'];
+    const lvl = levels[Math.floor(Math.random() * 3)]; // mostly L0-L2
+    const id = 'node_' + Math.random().toString(36).slice(2,10);
+    state.peers.push({ id, level: lvl, expert: 'rwkv', latency: Math.floor(20 + Math.random() * 200), reputation: (30 + Math.random() * 70).toFixed(1) });
+    addLog('info', `New peer connected: ${id.slice(0,12)} (${lvl})`);
+  }
+
+  if (state.evolution.observations > 0) {
+    state.evolution.successRate = (state.inferences.success / state.inferences.total) * 100;
+  }
+}
+
+function addLog(type, text) {
+  const now = new Date();
+  const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  state.logs.push({ time, type, text });
+  if (state.logs.length > 100) state.logs.shift();
+}
+
+// === Main Loop ===
+addLog('info', 'Dashboard initialized');
+addLog('ok', 'Node started: node_alpha (L1)');
+
+setInterval(() => {
+  simulate();
+  updateUI();
+}, REFRESH_MS);
+</script>
+</body>
+</html>

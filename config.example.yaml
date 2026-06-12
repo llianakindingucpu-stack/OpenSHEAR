@@ -1,0 +1,126 @@
+# DecentralAI Node Configuration
+# ================================
+# Copy and modify for your node setup.
+# All fields have sensible defaults - only override what you need.
+
+# === Node Identity ===
+node:
+  # Auto-generated if not set
+  # node_id: "my-node-001"
+  
+  # Node level: L0, L1, L2, L3, L4
+  level: L1
+  
+  # Human-readable name (optional)
+  # name: "Living Room Pi"
+
+# === Network ===
+network:
+  # P2P listen address
+  listen: "0.0.0.0:8001"
+  
+  # API server address
+  api_listen: "0.0.0.0:8000"
+  
+  # Bootstrap peers (connect on startup)
+  bootstrap_peers: []
+  #  - "ws://192.168.1.100:8001"
+  #  - "ws://boot.decentral-ai.net:8001"
+  
+  # Maximum peer connections
+  max_peers: 50
+  
+  # Gossip interval (seconds)
+  gossip_interval: 60
+
+# === Expert Models ===
+experts:
+  - # Primary model
+    model_path: "D:/pylib/rwkv-4-169m-native.pth"
+    architecture: rwkv
+    domain: general
+    strategy: "cpu fp32"    # RWKV strategy string
+    
+  # Add more experts as your hardware allows
+  # - model_path: "/models/qwen2.5-coder-7b-q4.gguf"
+  #   architecture: transformer
+  #   domain: code
+  #   strategy: "cuda fp16"
+
+# === Evolution Engine ===
+evolution:
+  # Enable automatic evolution
+  auto_evolve: true
+  
+  # Minimum observations before evolving
+  min_observations: 20
+  
+  # Evolution check interval (seconds)
+  check_interval: 300
+  
+  # LoRA training parameters
+  lora:
+    r: 8
+    alpha: 16
+    dropout: 0.05
+    learning_rate: 0.0001
+    epochs: 3
+    batch_size: 4
+  
+  # Verification thresholds
+  verification:
+    # Minimum improvement to accept evolution
+    min_improvement: 0.05
+    # Maximum allowed regression
+    max_regression: 0.1
+    # Number of benchmark samples for verification
+    benchmark_samples: 20
+
+# === Credit System ===
+credits:
+  # Starting credits for new nodes
+  initial_credits: 100
+  
+  # Minimum credits to serve requests
+  min_balance: 0
+  
+  # Quality multiplier for rewards (1.0 = standard)
+  quality_multiplier: 1.0
+
+# === Resource Limits ===
+limits:
+  # Maximum inference time per request (seconds)
+  max_inference_time: 30
+  
+  # Maximum tokens per request
+  max_tokens: 2048
+  
+  # Maximum concurrent requests
+  max_concurrent: 5
+  
+  # Memory limit for model loading (MB)
+  max_memory_mb: 8192
+
+# === Logging ===
+logging:
+  level: INFO
+  # Path to log file (empty = stdout only)
+  file: ""
+  # Log rotation size (MB)
+  max_size: 10
+  # Number of rotated logs to keep
+  backup_count: 3
+
+# === Advanced ===
+advanced:
+  # Random seed (0 = random)
+  seed: 0
+  
+  # Cache directory for downloaded models
+  cache_dir: "./cache"
+  
+  # Data directory for training data
+  data_dir: "./data"
+  
+  # Results directory for benchmark outputs
+  results_dir: "./results"
